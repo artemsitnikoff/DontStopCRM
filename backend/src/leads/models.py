@@ -17,3 +17,4 @@ class Lead(BaseModel):
 
     # Relationships
     messages = relationship("Message", back_populates="lead", cascade="all, delete-orphan")
+    events = relationship("Event", back_populates="lead")

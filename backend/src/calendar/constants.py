@@ -1,8 +1,18 @@
 from enum import Enum
 
 
-class AppointmentType(str, Enum):
-    """Appointment type enum."""
+class EventType(str, Enum):
+    """Event type enum."""
     BOOKING = "booking"
     TASK = "task"
-    FOLLOWUP = "followup"
+    FOLLOW_UP = "follow_up"
+
+
+class EventStatus(str, Enum):
+    """Event status enum."""
+    PLANNED = "planned"
+    DONE = "done"
+    CANCELLED = "cancelled"
+
+
+DEFAULT_CALENDAR_PAGE_SIZE = 50

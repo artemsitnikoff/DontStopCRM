@@ -1,14 +1,14 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, or_
-from sqlalchemy.orm import selectinload
-from src.calendar.models import Appointment
+from sqlalchemy import select, func, Select
+from src.calendar.models import Event
 from src.leads.models import Lead
-from src.calendar.schemas import AppointmentCreate, AppointmentUpdate, AppointmentFilter
-from src.calendar.exceptions import (
-    AppointmentNotFoundException,
-    InvalidLeadException,
-    TimeSlotConflictException
-)
+from src.calendar.schemas import EventCreate, EventUpdate
+from src.calendar.exceptions import EventNotFound
+from src.calendar.constants import EventType, EventStatus, DEFAULT_CALENDAR_PAGE_SIZE
+from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class CalendarService:
@@ -17,158 +17,117 @@ class CalendarService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def _check_time_conflict(
+    def _apply_filters(
         self,
-        start_time,
-        end_time,
-        appointment_id: int = None
-    ) -> bool:
-        """Check if appointment time conflicts with existing appointments."""
-        query = select(Appointment).where(
-            and_(
-                # Check for overlapping time slots
-                or_(
-                    # Start time is between existing appointment times
-                    and_(
-                        Appointment.start_time <= start_time,
-                        Appointment.end_time > start_time
-                    ),
-                    # End time is between existing appointment times
-                    and_(
-                        Appointment.start_time < end_time,
-                        Appointment.end_time >= end_time
-                    ),
-                    # New appointment completely contains existing appointment
-                    and_(
-                        Appointment.start_time >= start_time,
-                        Appointment.end_time <= end_time
-                    )
-                )
-            )
-        )
+        query: Select,
+        start: datetime | None,
+        end: datetime | None,
+        lead_id: int | None,
+        event_type: EventType | None,
+        status: EventStatus | None
+    ) -> Select:
+        """Apply filters to query."""
+        if start:
+            query = query.where(Event.start_at >= start)
+        if end:
+            query = query.where(Event.end_at <= end)
+        if lead_id is not None:
+            query = query.where(Event.lead_id == lead_id)
+        if event_type is not None:
+            query = query.where(Event.event_type == event_type)
+        if status is not None:
+            query = query.where(Event.status == status)
+        return query
 
-        # Exclude current appointment when updating
-        if appointment_id:
-            query = query.where(Appointment.id != appointment_id)
+    async def get_events(
+        self,
+        start: datetime | None = None,
+        end: datetime | None = None,
+        lead_id: int | None = None,
+        event_type: EventType | None = None,
+        status: EventStatus | None = None,
+        page: int = 1,
+        size: int = DEFAULT_CALENDAR_PAGE_SIZE
+    ) -> tuple[list[Event], int]:
+        """Get events with filters and pagination."""
+        query = select(Event)
+        query = self._apply_filters(query, start, end, lead_id, event_type, status)
 
+        # Count total
+        count_query = select(func.count(Event.id))
+        count_query = self._apply_filters(count_query, start, end, lead_id, event_type, status)
+
+        total_result = await self.db.execute(count_query)
+        total = total_result.scalar() or 0
+
+        # Get items with pagination
+        skip = (page - 1) * size
+        query = query.order_by(Event.start_at.asc()).offset(skip).limit(size)
         result = await self.db.execute(query)
-        conflicting_appointment = result.scalar_one_or_none()
-        return conflicting_appointment is not None
+        events = result.scalars().all()
 
-    async def create_appointment(self, appointment_data: AppointmentCreate) -> Appointment:
-        """Create a new appointment."""
-        # Verify lead exists
-        lead_result = await self.db.execute(
-            select(Lead).where(Lead.id == appointment_data.lead_id)
-        )
-        lead = lead_result.scalar_one_or_none()
-        if not lead:
-            raise InvalidLeadException(appointment_data.lead_id)
+        logger.info(f"Retrieved {len(events)} events, total: {total}")
+        return events, total
 
-        # Check for time conflicts
-        has_conflict = await self._check_time_conflict(
-            appointment_data.start_time,
-            appointment_data.end_time
-        )
-        if has_conflict:
-            raise TimeSlotConflictException(
-                str(appointment_data.start_time),
-                str(appointment_data.end_time)
-            )
+    async def get_event(self, event_id: int) -> Event:
+        """Get event by ID or raise EventNotFound."""
+        result = await self.db.execute(select(Event).where(Event.id == event_id))
+        event = result.scalar_one_or_none()
+        if not event:
+            logger.warning(f"Event {event_id} not found")
+            raise EventNotFound(event_id)
+        return event
 
-        db_appointment = Appointment(**appointment_data.model_dump())
-        self.db.add(db_appointment)
+    async def create_event(self, data: EventCreate) -> Event:
+        """Create new event."""
+        # Validate lead exists if lead_id provided
+        if data.lead_id:
+            lead_result = await self.db.execute(select(Lead).where(Lead.id == data.lead_id))
+            lead = lead_result.scalar_one_or_none()
+            if not lead:
+                logger.warning(f"Lead {data.lead_id} not found for event creation")
+                raise ValueError(f"Lead with id {data.lead_id} not found")
+
+        db_event = Event(**data.model_dump())
+        self.db.add(db_event)
         await self.db.commit()
-        await self.db.refresh(db_appointment)
-        return db_appointment
+        await self.db.refresh(db_event)
+        logger.info(f"Created event {db_event.id}: {db_event.title}")
+        return db_event
 
-    async def get_appointment_by_id(self, appointment_id: int) -> Appointment | None:
-        """Get appointment by ID."""
-        result = await self.db.execute(
-            select(Appointment)
-            .options(selectinload(Appointment.lead))
-            .where(Appointment.id == appointment_id)
-        )
-        return result.scalar_one_or_none()
+    async def update_event(self, event_id: int, data: EventUpdate) -> Event:
+        """Update event."""
+        event = await self.get_event(event_id)
 
-    async def get_appointments(
-        self,
-        filters: AppointmentFilter = None,
-        skip: int = 0,
-        limit: int = 100
-    ) -> list[Appointment]:
-        """Get list of appointments with optional filters."""
-        query = select(Appointment).options(selectinload(Appointment.lead))
+        # Validate lead exists if lead_id provided
+        if data.lead_id:
+            lead_result = await self.db.execute(select(Lead).where(Lead.id == data.lead_id))
+            lead = lead_result.scalar_one_or_none()
+            if not lead:
+                logger.warning(f"Lead {data.lead_id} not found for event update")
+                raise ValueError(f"Lead with id {data.lead_id} not found")
 
-        if filters:
-            if filters.lead_id:
-                query = query.where(Appointment.lead_id == filters.lead_id)
-            if filters.type:
-                query = query.where(Appointment.type == filters.type)
-            if filters.start_date:
-                query = query.where(Appointment.start_time >= filters.start_date)
-            if filters.end_date:
-                query = query.where(Appointment.end_time <= filters.end_date)
-
-        query = query.offset(skip).limit(limit).order_by(Appointment.start_time.asc())
-        result = await self.db.execute(query)
-        return result.scalars().all()
-
-    async def count_appointments(self, filters: AppointmentFilter = None) -> int:
-        """Count appointments with optional filters."""
-        query = select(func.count(Appointment.id))
-
-        if filters:
-            if filters.lead_id:
-                query = query.where(Appointment.lead_id == filters.lead_id)
-            if filters.type:
-                query = query.where(Appointment.type == filters.type)
-            if filters.start_date:
-                query = query.where(Appointment.start_time >= filters.start_date)
-            if filters.end_date:
-                query = query.where(Appointment.end_time <= filters.end_date)
-
-        result = await self.db.execute(query)
-        return result.scalar()
-
-    async def update_appointment(
-        self,
-        appointment_id: int,
-        appointment_data: AppointmentUpdate
-    ) -> Appointment:
-        """Update appointment."""
-        appointment = await self.get_appointment_by_id(appointment_id)
-        if not appointment:
-            raise AppointmentNotFoundException(appointment_id)
-
-        update_data = appointment_data.model_dump(exclude_unset=True)
-
-        # Check for time conflicts if time is being updated
-        if "start_time" in update_data or "end_time" in update_data:
-            start_time = update_data.get("start_time", appointment.start_time)
-            end_time = update_data.get("end_time", appointment.end_time)
-
-            has_conflict = await self._check_time_conflict(
-                start_time,
-                end_time,
-                appointment_id
-            )
-            if has_conflict:
-                raise TimeSlotConflictException(str(start_time), str(end_time))
-
+        update_data = data.model_dump(exclude_unset=True)
         for field, value in update_data.items():
-            setattr(appointment, field, value)
+            setattr(event, field, value)
 
         await self.db.commit()
-        await self.db.refresh(appointment)
-        return appointment
+        await self.db.refresh(event)
+        logger.info(f"Updated event {event_id}")
+        return event
 
-    async def delete_appointment(self, appointment_id: int) -> bool:
-        """Delete appointment."""
-        appointment = await self.get_appointment_by_id(appointment_id)
-        if not appointment:
-            raise AppointmentNotFoundException(appointment_id)
-
-        await self.db.delete(appointment)
+    async def update_event_status(self, event_id: int, status: EventStatus) -> Event:
+        """Update event status only."""
+        event = await self.get_event(event_id)
+        event.status = status
         await self.db.commit()
-        return True
+        await self.db.refresh(event)
+        logger.info(f"Updated event {event_id} status to {status}")
+        return event
+
+    async def delete_event(self, event_id: int) -> None:
+        """Delete event."""
+        event = await self.get_event(event_id)
+        await self.db.delete(event)
+        await self.db.commit()
+        logger.info(f"Deleted event {event_id}")

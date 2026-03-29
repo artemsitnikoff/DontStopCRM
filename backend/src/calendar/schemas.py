@@ -1,56 +1,65 @@
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import Field, model_validator
 from datetime import datetime
-from typing import Optional
-from src.common.schemas import BaseResponse
-from src.calendar.constants import AppointmentType
+from src.common.schemas import BaseSchema, BaseResponse, PaginatedResponse
+from src.calendar.constants import EventType, EventStatus
 
 
-class AppointmentBase(BaseModel):
-    """Base appointment schema."""
-    lead_id: int
-    title: str
-    start_time: datetime
-    end_time: datetime
-    type: AppointmentType = AppointmentType.BOOKING
+class EventBase(BaseSchema):
+    """Base event schema."""
+    title: str = Field(min_length=1, max_length=255)
+    description: str | None = None
+    start_at: datetime
+    end_at: datetime
+    lead_id: int | None = None
+    event_type: EventType = EventType.TASK
+    status: EventStatus = EventStatus.PLANNED
 
-    @field_validator('end_time')
-    @classmethod
-    def validate_end_time(cls, v, info):
-        """Validate that end_time is after start_time."""
-        if hasattr(info, 'data') and 'start_time' in info.data and v <= info.data['start_time']:
-            raise ValueError('end_time must be after start_time')
-        return v
+    @model_validator(mode='after')
+    def validate_times(self):
+        """Validate that end_at is after start_at."""
+        if self.end_at <= self.start_at:
+            raise ValueError('end_at must be after start_at')
+        return self
 
 
-class AppointmentCreate(AppointmentBase):
-    """Appointment creation schema."""
+class EventCreate(EventBase):
+    """Event creation schema."""
     pass
 
 
-class AppointmentUpdate(BaseModel):
-    """Appointment update schema."""
-    title: Optional[str] = None
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
-    type: Optional[AppointmentType] = None
+class EventUpdate(BaseSchema):
+    """Event update schema."""
+    title: str | None = Field(None, min_length=1, max_length=255)
+    description: str | None = None
+    start_at: datetime | None = None
+    end_at: datetime | None = None
+    lead_id: int | None = None
+    event_type: EventType | None = None
+    status: EventStatus | None = None
 
-    @field_validator('end_time')
-    @classmethod
-    def validate_end_time(cls, v, info):
-        """Validate that end_time is after start_time."""
-        if v and hasattr(info, 'data') and 'start_time' in info.data and v <= info.data['start_time']:
-            raise ValueError('end_time must be after start_time')
-        return v
-
-
-class AppointmentResponse(BaseResponse, AppointmentBase):
-    """Appointment response schema."""
-    model_config = ConfigDict(from_attributes=True)
+    @model_validator(mode='after')
+    def validate_times(self):
+        """Validate that end_at is after start_at if both are provided."""
+        if self.start_at and self.end_at and self.end_at <= self.start_at:
+            raise ValueError('end_at must be after start_at')
+        return self
 
 
-class AppointmentFilter(BaseModel):
-    """Appointment filter schema."""
-    lead_id: Optional[int] = None
-    type: Optional[AppointmentType] = None
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
+class EventStatusUpdate(BaseSchema):
+    """Event status update schema for quick status change."""
+    status: EventStatus
+
+
+class EventResponse(BaseResponse):
+    """Event response schema."""
+    title: str
+    description: str | None = None
+    start_at: datetime
+    end_at: datetime
+    lead_id: int | None = None
+    event_type: EventType
+    status: EventStatus
+
+
+# Using PaginatedResponse from common schemas
+EventListResponse = PaginatedResponse[EventResponse]
