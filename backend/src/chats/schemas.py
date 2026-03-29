@@ -16,13 +16,6 @@ class MessageCreate(MessageCreateBody):
     lead_id: int
 
 
-class MessageUpdate(BaseSchema):
-    """Message update schema."""
-    content: str | None = None
-    direction: MessageDirection | None = None
-    source: MessageSource | None = None
-    is_from_agent: bool | None = None
-
 
 class MessageResponse(BaseResponse):
     """Message response schema."""

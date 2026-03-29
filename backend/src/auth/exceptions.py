@@ -33,3 +33,10 @@ class InactiveUserException(Exception):
     def __init__(self, email: str):
         self.email = email
         super().__init__(f"User with email {email} is inactive")
+
+
+class InvalidTokenError(Exception):
+    """Raised when JWT token is invalid or expired."""
+
+    def __init__(self):
+        super().__init__("Could not validate credentials")

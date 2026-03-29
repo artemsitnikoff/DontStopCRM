@@ -35,9 +35,3 @@ class PaginatedResponse(BaseSchema, Generic[DataT]):
     pagination: Pagination
 
 
-class ApiResponse(BaseSchema, Generic[DataT]):
-    """Standard API response wrapper."""
-
-    success: bool = True
-    message: Optional[str] = None
-    data: Optional[DataT] = None

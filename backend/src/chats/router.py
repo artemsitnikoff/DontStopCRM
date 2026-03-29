@@ -57,7 +57,7 @@ async def _process_ws_message(data: str, lead_id: int, websocket: WebSocket):
         except ChatNotFound as e:
             return {"type": "error", "message": str(e)}
         except Exception as e:
-            logger.error(f"WS error: {e}")
+            logger.error("WS error: %s", e)
             return {"type": "error", "message": "Internal error"}
 
 
@@ -128,11 +128,16 @@ async def websocket_endpoint(
 
     try:
         from src.core.security import verify_token
+        from src.auth.exceptions import InvalidTokenError
+
         payload = verify_token(token)
         user_id = payload.get("sub")
         if user_id is None:
             await websocket.close(code=4001, reason="Invalid token")
             return
+    except InvalidTokenError:
+        await websocket.close(code=4001, reason="Invalid token")
+        return
     except Exception:
         await websocket.close(code=4001, reason="Invalid token")
         return
@@ -151,7 +156,7 @@ async def websocket_endpoint(
         manager.disconnect(websocket, lead_id)
     except Exception as e:
         # Log actual error details
-        logger.error(f"WebSocket error for lead {lead_id}: {e}")
+        logger.error("WebSocket error for lead %s: %s", lead_id, e)
 
         # Send generic error message to client
         try:

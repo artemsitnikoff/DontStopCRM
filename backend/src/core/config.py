@@ -1,6 +1,6 @@
 from pydantic_settings import BaseSettings
 from pydantic import ConfigDict
-from typing import Optional, List
+from typing import List
 
 
 class Settings(BaseSettings):
@@ -8,9 +8,6 @@ class Settings(BaseSettings):
 
     # Database
     DATABASE_URL: str
-
-    # Redis
-    REDIS_URL: str = "redis://localhost:6379/0"
 
     # Security
     SECRET_KEY: str

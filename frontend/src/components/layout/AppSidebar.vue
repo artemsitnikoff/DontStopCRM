@@ -106,8 +106,7 @@ const handleLogout = async () => {
     <div class="p-3 border-t border-white border-opacity-10">
       <div class="flex flex-col items-center space-y-2">
         <AppAvatar
-          :name="user?.name"
-          :src="user?.avatar"
+          :name="user?.full_name"
           size="md"
         />
 

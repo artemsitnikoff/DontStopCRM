@@ -2,7 +2,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, Union
 from passlib.context import CryptContext
 from jose import JWTError, jwt
-from fastapi import HTTPException, status
 from .config import settings
 
 # Password hashing context
@@ -28,11 +27,8 @@ def verify_token(token: str) -> dict:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         return payload
     except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        from src.auth.exceptions import InvalidTokenError
+        raise InvalidTokenError()
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:

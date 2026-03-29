@@ -24,6 +24,7 @@ from src.auth.exceptions import (
     InvalidCredentialsException,
     UserAlreadyExistsException,
     InactiveUserException,
+    InvalidTokenError,
 )
 from src.leads.exceptions import (
     LeadNotFound,
@@ -76,6 +77,7 @@ def create_application() -> FastAPI:
         InvalidCredentialsException: (401, "INVALID_CREDENTIALS"),
         UserAlreadyExistsException: (400, "USER_ALREADY_EXISTS"),
         InactiveUserException: (400, "INACTIVE_USER"),
+        InvalidTokenError: (401, "INVALID_TOKEN"),
         LeadNotFound: (404, "LEAD_NOT_FOUND"),
         ChatNotFound: (404, "CHAT_NOT_FOUND"),
         EventNotFound: (404, "EVENT_NOT_FOUND"),

@@ -33,7 +33,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle general exceptions."""
-    logger.exception(f"Unhandled exception: {exc}")
+    logger.exception("Unhandled exception: %s", exc)
     return JSONResponse(
         status_code=500,
         content={
