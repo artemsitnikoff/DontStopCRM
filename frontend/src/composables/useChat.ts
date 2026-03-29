@@ -1,5 +1,5 @@
 import { ref, nextTick } from 'vue'
-import type { ChatPreview, Message, MessageCreate } from '@/types/chat'
+import type { ChatPreview, Message, MessageCreate, MessageDirection, MessageSource } from '@/types/chat'
 import * as chatsApi from '@/api/chats'
 
 export function useChat() {
@@ -9,6 +9,7 @@ export function useChat() {
   const loading = ref(false)
   const sendingMessage = ref(false)
   const error = ref<string | null>(null)
+  const wsConnected = ref(false)
 
   let ws: WebSocket | null = null
 
@@ -67,7 +68,7 @@ export function useChat() {
     }
   }
 
-  const sendMessage = async (content: string, direction: 'in' | 'out' = 'out', source: 'telegram' | 'whatsapp' | 'manual' = 'manual') => {
+  const sendMessage = async (content: string, direction: MessageDirection = 'out', source: MessageSource = 'manual') => {
     if (!selectedLeadId.value || !content.trim()) return
 
     try {
@@ -78,7 +79,7 @@ export function useChat() {
         content: content.trim(),
         direction,
         source,
-        is_from_agent: true
+        is_from_agent: false
       }
 
       const newMessage = await chatsApi.sendMessage(selectedLeadId.value, messageData)
@@ -104,7 +105,7 @@ export function useChat() {
       ws = new WebSocket(wsUrl)
 
       ws.onopen = () => {
-        // WebSocket connected
+        wsConnected.value = true
       }
 
       ws.onmessage = async (event) => {
@@ -127,14 +128,14 @@ export function useChat() {
       }
 
       ws.onerror = () => {
-        // WebSocket error
+        wsConnected.value = false
       }
 
       ws.onclose = () => {
-        // WebSocket disconnected
+        wsConnected.value = false
       }
     } catch (err) {
-      console.error('Error connecting WebSocket:', err)
+      wsConnected.value = false
     }
   }
 
@@ -143,6 +144,7 @@ export function useChat() {
       ws.close()
       ws = null
     }
+    wsConnected.value = false
   }
 
   const updateChatPreview = (message: Message) => {
@@ -159,12 +161,6 @@ export function useChat() {
     }
   }
 
-  const scrollToBottom = (container: HTMLElement | null) => {
-    if (container) {
-      container.scrollTop = container.scrollHeight
-    }
-  }
-
   return {
     chats,
     selectedLeadId,
@@ -172,11 +168,11 @@ export function useChat() {
     loading,
     sendingMessage,
     error,
+    wsConnected,
     fetchChats,
     selectChat,
     sendMessage,
     connectWebSocket,
-    disconnectWebSocket,
-    scrollToBottom
+    disconnectWebSocket
   }
 }

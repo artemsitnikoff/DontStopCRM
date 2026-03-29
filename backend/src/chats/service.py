@@ -1,7 +1,6 @@
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from sqlalchemy.orm import selectinload, joinedload
 from src.chats.models import Message
 from src.leads.models import Lead
 from src.chats.schemas import MessageCreate, ChatPreview
@@ -17,6 +16,17 @@ class ChatService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    def _build_count_subquery(self):
+        """Build subquery to count messages per lead."""
+        return (
+            select(
+                Message.lead_id,
+                func.count(Message.id).label("message_count")
+            )
+            .group_by(Message.lead_id)
+            .subquery()
+        )
+
     async def get_chats(self) -> list[ChatPreview]:
         """Get list of chat previews grouped by lead with last message."""
         # Subquery to get the latest message for each lead
@@ -29,6 +39,9 @@ class ChatService:
             .subquery()
         )
 
+        # Subquery to count messages per lead
+        count_subquery = self._build_count_subquery()
+
         # Main query to get chat data
         query = (
             select(
@@ -37,7 +50,7 @@ class ChatService:
                 Lead.phone.label("lead_phone"),
                 Message.content.label("last_message"),
                 Message.created_at.label("last_message_time"),
-                func.count(Message.id).over(partition_by=Lead.id).label("message_count")
+                count_subquery.c.message_count
             )
             .select_from(Lead)
             .join(Message, Lead.id == Message.lead_id)
@@ -46,6 +59,7 @@ class ChatService:
                 (Message.lead_id == latest_message_subquery.c.lead_id) &
                 (Message.created_at == latest_message_subquery.c.last_message_time)
             )
+            .join(count_subquery, Lead.id == count_subquery.c.lead_id)
             .order_by(Message.created_at.desc())
         )
 

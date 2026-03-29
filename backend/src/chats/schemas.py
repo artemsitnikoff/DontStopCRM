@@ -3,15 +3,6 @@ from src.common.schemas import BaseSchema, BaseResponse, PaginatedResponse
 from src.chats.constants import MessageDirection, MessageSource
 
 
-class MessageBase(BaseSchema):
-    """Base message schema."""
-    lead_id: int
-    content: str
-    direction: MessageDirection
-    source: MessageSource = MessageSource.MANUAL
-    is_from_agent: bool = False
-
-
 class MessageCreate(BaseSchema):
     """Message creation schema."""
     lead_id: int

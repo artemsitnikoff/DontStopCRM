@@ -25,12 +25,12 @@ const messagesContainer = ref<HTMLElement | null>(null)
 // Group messages by date
 const groupedMessages = computed(() => {
   const groups: { [key: string]: Message[] } = {}
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
 
   props.messages.forEach(message => {
     const date = new Date(message.created_at)
-    const today = new Date()
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
 
     let dateKey: string
 

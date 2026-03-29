@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 import json
 import logging
+import pydantic
 from src.chats.schemas import (
     MessageCreate,
     MessageResponse,
@@ -78,15 +79,32 @@ async def websocket_endpoint(
     try:
         while True:
             data = await websocket.receive_text()
-            message_data = json.loads(data)
+
+            try:
+                message_data = json.loads(data)
+            except json.JSONDecodeError:
+                await websocket.send_text(json.dumps({
+                    "type": "error",
+                    "message": "Invalid JSON"
+                }))
+                continue
+
+            try:
+                # Validate message data
+                create_data = MessageCreate(**message_data)
+                create_data.lead_id = lead_id
+            except pydantic.ValidationError:
+                await websocket.send_text(json.dumps({
+                    "type": "error",
+                    "message": "Invalid message format"
+                }))
+                continue
 
             # Create database session and service
             async with AsyncSessionLocal() as db:
                 service = ChatService(db)
 
                 # Create message through service
-                create_data = MessageCreate(**message_data)
-                create_data.lead_id = lead_id
                 message = await service.create_message(create_data)
 
                 # Broadcast to all connections for this lead
@@ -108,7 +126,7 @@ async def websocket_endpoint(
                 "type": "error",
                 "message": "Internal error"
             }))
-        except:
+        except Exception:
             pass  # Connection might already be closed
 
         manager.disconnect(websocket, lead_id)
