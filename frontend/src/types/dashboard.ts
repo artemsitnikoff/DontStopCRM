@@ -1,22 +1,28 @@
-export interface DashboardStats {
-  total_leads: number
-  new_leads: number
-  qualified_leads: number
-  won_deals: number
-  total_revenue: number
-  conversion_rate: number
-  monthly_revenue: number
-  pending_appointments: number
-  unread_messages: number
-}
-
-export interface RevenueChart {
-  month: string
-  revenue: number
-}
-
-export interface LeadsByStatus {
+export interface StatusCount {
   status: string
   count: number
-  percentage: number
+}
+
+export interface SourceCount {
+  source: string
+  count: number
+}
+
+export interface UpcomingTask {
+  id: number
+  title: string
+  start_at: string
+  end_at: string
+  event_type: string
+  lead_id: number | null
+  lead_name: string | null
+}
+
+export interface DashboardStats {
+  total_leads: number
+  leads_by_status: StatusCount[]
+  leads_by_source: SourceCount[]
+  upcoming_tasks: UpcomingTask[]
+  today_bookings: number
+  conversion_rate: number
 }
