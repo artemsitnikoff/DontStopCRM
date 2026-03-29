@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, Select
 from src.leads.models import Lead
 from src.leads.schemas import LeadCreate, LeadUpdate
 from src.leads.exceptions import LeadNotFound
@@ -12,7 +12,7 @@ class LeadService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    def _apply_filters(self, query, status_filter: LeadStatus | None, source_filter: LeadSource | None):
+    def _apply_filters(self, query: Select, status_filter: LeadStatus | None, source_filter: LeadSource | None) -> Select:
         """Apply status and source filters to query."""
         if status_filter is not None:
             query = query.where(Lead.status == status_filter)
@@ -36,11 +36,11 @@ class LeadService:
         count_query = self._apply_filters(count_query, status_filter, source_filter)
 
         total_result = await self.db.execute(count_query)
-        total = total_result.scalar()
+        total = total_result.scalar() or 0
 
         # Get items with pagination
         skip = (page - 1) * size
-        query = query.offset(skip).limit(size).order_by(Lead.created_at.desc())
+        query = query.order_by(Lead.created_at.desc()).offset(skip).limit(size)
         result = await self.db.execute(query)
         leads = result.scalars().all()
 

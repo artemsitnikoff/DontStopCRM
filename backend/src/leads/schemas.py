@@ -1,6 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
-import re
 from src.common.schemas import BaseResponse, PaginatedResponse
 from src.leads.constants import LeadStatus, LeadSource
 

@@ -10,6 +10,7 @@ from src.leads.schemas import (
 from src.leads.service import LeadService
 from src.leads.dependencies import get_lead_service
 from src.leads.constants import LeadStatus, LeadSource
+from src.common.schemas import Pagination
 
 router = APIRouter(prefix="/api/v1/leads", tags=["leads"])
 
@@ -24,7 +25,6 @@ async def get_leads(
 ):
     """Get list of leads with filters and pagination."""
     leads, total = await service.get_leads(status, source, page, size)
-    from src.common.schemas import Pagination
     return LeadListResponse(
         items=[LeadResponse.model_validate(lead) for lead in leads],
         pagination=Pagination(

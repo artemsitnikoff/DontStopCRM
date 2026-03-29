@@ -2,6 +2,8 @@ import { ref, computed, onMounted } from 'vue'
 import type { Lead, LeadStatus } from '@/types/lead'
 import * as leadsApi from '@/api/leads'
 
+const KANBAN_PAGE_SIZE = 1000
+
 export function useLeads() {
   const leads = ref<Lead[]>([])
   const loading = ref(false)
@@ -30,7 +32,7 @@ export function useLeads() {
       loading.value = true
       error.value = null
       // Fetch all leads without status filter for kanban view with large size
-      const response = await leadsApi.getLeads({ size: 1000 })
+      const response = await leadsApi.getLeads({ size: KANBAN_PAGE_SIZE })
       leads.value = response.items
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Ошибка загрузки лидов'

@@ -1,2 +1,2 @@
-// This store is deprecated - useLeads composable is used instead
-// Keeping file for potential future use or migration
+// Deprecated: use composables/useLeads.ts instead
+export {}

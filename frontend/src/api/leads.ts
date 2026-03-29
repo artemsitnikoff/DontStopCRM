@@ -22,7 +22,7 @@ export const createLead = async (leadData: LeadCreate): Promise<Lead> => {
 }
 
 export const updateLead = async (id: number, updates: LeadUpdate): Promise<Lead> => {
-  const { data } = await apiClient.put<Lead>(`/leads/${id}`, updates)
+  const { data } = await apiClient.patch<Lead>(`/leads/${id}`, updates)
   return data
 }
 

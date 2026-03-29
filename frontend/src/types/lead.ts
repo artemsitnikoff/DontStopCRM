@@ -27,9 +27,14 @@ export interface LeadUpdate {
   first_message?: string
 }
 
-export interface LeadListResponse {
-  items: Lead[]
-  total: number
+export interface Pagination {
   page: number
   size: number
+  total: number
+  pages: number
+}
+
+export interface LeadListResponse {
+  items: Lead[]
+  pagination: Pagination
 }
