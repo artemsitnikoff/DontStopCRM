@@ -1,30 +1,45 @@
 import apiClient from './client'
-import type { Appointment, AppointmentCreate, AppointmentUpdate } from '@/types/calendar'
+import type { CalendarEvent, EventCreate, EventUpdate, EventStatus } from '@/types/calendar'
+import type { Pagination } from '@/types/lead'
 
-export const getAppointments = async (start?: string, end?: string): Promise<Appointment[]> => {
-  const params = new URLSearchParams()
-  if (start) params.append('start', start)
-  if (end) params.append('end', end)
+interface EventsResponse {
+  items: CalendarEvent[]
+  pagination: Pagination
+}
 
-  const { data } = await apiClient.get<Appointment[]>(`/appointments/?${params}`)
+export const getEvents = async (params: {
+  start?: string
+  end?: string
+  lead_id?: number
+  event_type?: string
+  status?: string
+  page?: number
+  size?: number
+} = {}): Promise<EventsResponse> => {
+  const { data } = await apiClient.get<EventsResponse>('/events/', { params })
   return data
 }
 
-export const getAppointment = async (id: number): Promise<Appointment> => {
-  const { data } = await apiClient.get<Appointment>(`/appointments/${id}`)
+export const getEvent = async (id: number): Promise<CalendarEvent> => {
+  const { data } = await apiClient.get<CalendarEvent>(`/events/${id}`)
   return data
 }
 
-export const createAppointment = async (appointmentData: AppointmentCreate): Promise<Appointment> => {
-  const { data } = await apiClient.post<Appointment>('/appointments/', appointmentData)
+export const createEvent = async (data: EventCreate): Promise<CalendarEvent> => {
+  const { data: response } = await apiClient.post<CalendarEvent>('/events/', data)
+  return response
+}
+
+export const updateEvent = async (id: number, data: EventUpdate): Promise<CalendarEvent> => {
+  const { data: response } = await apiClient.patch<CalendarEvent>(`/events/${id}`, data)
+  return response
+}
+
+export const updateEventStatus = async (id: number, status: EventStatus): Promise<CalendarEvent> => {
+  const { data } = await apiClient.patch<CalendarEvent>(`/events/${id}/status`, { status })
   return data
 }
 
-export const updateAppointment = async (id: number, updates: AppointmentUpdate): Promise<Appointment> => {
-  const { data } = await apiClient.put<Appointment>(`/appointments/${id}`, updates)
-  return data
-}
-
-export const deleteAppointment = async (id: number): Promise<void> => {
-  await apiClient.delete(`/appointments/${id}`)
+export const deleteEvent = async (id: number): Promise<void> => {
+  await apiClient.delete(`/events/${id}`)
 }

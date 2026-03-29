@@ -1,39 +1,39 @@
-export enum AppointmentType {
-  Call = 'call',
-  Meeting = 'meeting',
-  Demo = 'demo',
-  Followup = 'followup'
-}
+export type EventType = 'booking' | 'task' | 'follow_up'
+export type EventStatus = 'planned' | 'done' | 'cancelled'
 
-export interface Appointment {
+export interface CalendarEvent {
   id: number
   title: string
-  description?: string
-  type: AppointmentType
-  start_time: string
-  end_time: string
-  lead_id?: number
-  lead_name?: string
-  location?: string
+  description: string | null
+  start_at: string
+  end_at: string
+  lead_id: number | null
+  event_type: EventType
+  status: EventStatus
   created_at: string
   updated_at: string
 }
 
-export interface AppointmentCreate {
+export interface EventCreate {
   title: string
   description?: string
-  type: AppointmentType
-  start_time: string
-  end_time: string
-  lead_id?: number
-  location?: string
+  start_at: string
+  end_at: string
+  lead_id?: number | null
+  event_type?: EventType
+  status?: EventStatus
 }
 
-export interface AppointmentUpdate {
+export interface EventUpdate {
   title?: string
   description?: string
-  type?: AppointmentType
-  start_time?: string
-  end_time?: string
-  location?: string
+  start_at?: string
+  end_at?: string
+  lead_id?: number | null
+  event_type?: EventType
+  status?: EventStatus
+}
+
+export interface EventStatusUpdate {
+  status: EventStatus
 }
