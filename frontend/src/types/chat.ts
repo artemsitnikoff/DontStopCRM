@@ -1,19 +1,45 @@
-export enum SenderType {
-  User = 'user',
-  Lead = 'lead',
-  System = 'system'
-}
+export type MessageDirection = 'in' | 'out'
+export type MessageSource = 'telegram' | 'whatsapp' | 'manual'
 
 export interface Message {
   id: number
   lead_id: number
-  sender_type: SenderType
-  sender_name: string
+  direction: MessageDirection
   content: string
-  is_read: boolean
+  source: MessageSource
+  is_from_agent: boolean
   created_at: string
 }
 
+export interface ChatPreview {
+  lead_id: number
+  lead_name: string
+  lead_phone: string | null
+  last_message: string | null
+  last_message_time: string | null
+  message_count: number
+}
+
+export interface MessageCreate {
+  content: string
+  direction: MessageDirection
+  source?: MessageSource
+  is_from_agent?: boolean
+}
+
+export interface Pagination {
+  page: number
+  size: number
+  total: number
+  pages: number
+}
+
+export interface MessageListResponse {
+  items: Message[]
+  pagination: Pagination
+}
+
+// Keep legacy Chat interface for backward compatibility
 export interface Chat {
   lead_id: number
   lead_name: string
