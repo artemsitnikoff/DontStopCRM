@@ -1,4 +1,4 @@
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import type { Lead, LeadStatus } from '@/types/lead'
 import * as leadsApi from '@/api/leads'
 
@@ -61,11 +61,6 @@ export function useLeads() {
       error.value = err instanceof Error ? err.message : 'Ошибка обновления статуса лида'
     }
   }
-
-  // Fetch leads on mount
-  onMounted(() => {
-    fetchLeads()
-  })
 
   return {
     leads,

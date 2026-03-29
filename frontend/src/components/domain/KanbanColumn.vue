@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import draggable from 'vuedraggable'
 import LeadCard from './LeadCard.vue'
 import type { Lead, LeadStatus } from '@/types/lead'
@@ -23,6 +23,14 @@ const emit = defineEmits<{
 
 const drag = ref(false)
 
+// Create a local copy of leads to avoid mutating props
+const localLeads = computed({
+  get: () => props.leads,
+  set: () => {
+    // Do nothing - we handle updates via onChange
+  }
+})
+
 const onChange = (event: DraggableChangeEvent) => {
   if (event.added) {
     const { element } = event.added
@@ -45,7 +53,7 @@ const onChange = (event: DraggableChangeEvent) => {
 
     <!-- Draggable leads list -->
     <draggable
-      :list="leads"
+      :list="localLeads"
       group="leads"
       item-key="id"
       @change="onChange"

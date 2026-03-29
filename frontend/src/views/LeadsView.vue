@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted } from 'vue'
 import AppButton from '@/components/ui/AppButton.vue'
 import KanbanColumn from '@/components/domain/KanbanColumn.vue'
 import { useLeads } from '@/composables/useLeads'
 import type { LeadStatus } from '@/types/lead'
 
-const { leadsByStatus, loading, error, moveLeadStatus } = useLeads()
+const { leadsByStatus, loading, error, moveLeadStatus, fetchLeads } = useLeads()
 
-const showAddModal = ref(false)
+onMounted(() => fetchLeads())
 
 const statusLabels = {
   new: 'Новый',
@@ -42,7 +42,7 @@ const handleLeadMoved = async (leadId: number, newStatus: LeadStatus) => {
         <h1 class="text-2xl font-semibold text-black">Лиды</h1>
         <p class="text-gray-600 mt-1">Управление воронкой продаж</p>
       </div>
-      <AppButton variant="primary" @click="showAddModal = true">
+      <AppButton variant="primary">
         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
         </svg>

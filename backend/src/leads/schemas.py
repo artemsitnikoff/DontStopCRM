@@ -1,15 +1,14 @@
-from pydantic import BaseModel, ConfigDict, Field
-from typing import Optional
-from src.common.schemas import BaseResponse, PaginatedResponse
+from pydantic import Field
+from src.common.schemas import BaseSchema, BaseResponse, PaginatedResponse
 from src.leads.constants import LeadStatus, LeadSource
 
 
-class LeadBase(BaseModel):
+class LeadBase(BaseSchema):
     """Base lead schema."""
     name: str = Field(min_length=1, max_length=255)
-    phone: Optional[str] = Field(None, pattern=r'^\+?[1-9]\d{1,14}$')
+    phone: str | None = Field(None, pattern=r'^\+?[1-9]\d{1,14}$')
     source: LeadSource = LeadSource.PHONE
-    first_message: Optional[str] = None
+    first_message: str | None = None
 
 
 class LeadCreate(LeadBase):
@@ -17,16 +16,16 @@ class LeadCreate(LeadBase):
     pass
 
 
-class LeadUpdate(BaseModel):
+class LeadUpdate(BaseSchema):
     """Lead update schema."""
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
-    phone: Optional[str] = Field(None, pattern=r'^\+?[1-9]\d{1,14}$')
-    source: Optional[LeadSource] = None
-    status: Optional[LeadStatus] = None
-    first_message: Optional[str] = None
+    name: str | None = Field(None, min_length=1, max_length=255)
+    phone: str | None = Field(None, pattern=r'^\+?[1-9]\d{1,14}$')
+    source: LeadSource | None = None
+    status: LeadStatus | None = None
+    first_message: str | None = None
 
 
-class LeadStatusUpdate(BaseModel):
+class LeadStatusUpdate(BaseSchema):
     """Lead status update schema for drag-n-drop."""
     status: LeadStatus
 
@@ -34,10 +33,10 @@ class LeadStatusUpdate(BaseModel):
 class LeadResponse(BaseResponse):
     """Lead response schema."""
     name: str
-    phone: Optional[str] = None
+    phone: str | None = None
     source: LeadSource
     status: LeadStatus
-    first_message: Optional[str] = None
+    first_message: str | None = None
 
 
 # Using PaginatedResponse from common schemas

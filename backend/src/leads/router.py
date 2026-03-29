@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, Query
-from typing import Optional
 from src.leads.schemas import (
     LeadCreate,
     LeadUpdate,
@@ -17,8 +16,8 @@ router = APIRouter(prefix="/api/v1/leads", tags=["leads"])
 
 @router.get("/", response_model=LeadListResponse)
 async def get_leads(
-    status: Optional[LeadStatus] = Query(None),
-    source: Optional[LeadSource] = Query(None),
+    status: LeadStatus | None = Query(None),
+    source: LeadSource | None = Query(None),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     service: LeadService = Depends(get_lead_service),
