@@ -1,8 +1,17 @@
 from enum import Enum
 
 
-class MessageSenderType(str, Enum):
-    """Message sender type enum."""
-    CLIENT = "client"
-    AGENT = "agent"
-    SYSTEM = "system"
+class MessageDirection(str, Enum):
+    """Message direction enum."""
+    IN = "in"    # from client
+    OUT = "out"  # to client
+
+
+class MessageSource(str, Enum):
+    """Message source enum."""
+    TELEGRAM = "telegram"
+    WHATSAPP = "whatsapp"
+    MANUAL = "manual"
+
+
+DEFAULT_CHAT_PAGE_SIZE = 50

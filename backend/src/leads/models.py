@@ -1,4 +1,5 @@
 from sqlalchemy import Column, String, Text, Enum
+from sqlalchemy.orm import relationship
 from src.common.models import BaseModel
 from src.leads.constants import LeadStatus, LeadSource
 
@@ -13,3 +14,6 @@ class Lead(BaseModel):
     source = Column(Enum(LeadSource), nullable=False, default=LeadSource.PHONE, index=True)
     status = Column(Enum(LeadStatus), nullable=False, default=LeadStatus.NEW, index=True)
     first_message = Column(Text, nullable=True)
+
+    # Relationships
+    messages = relationship("Message", back_populates="lead", cascade="all, delete-orphan")

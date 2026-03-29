@@ -1,134 +1,138 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
-from typing import Optional
+import json
+from typing import Dict
 from src.chats.schemas import (
     MessageCreate,
-    MessageUpdate,
     MessageResponse,
-    MessageFilter,
+    ChatListResponse,
+    MessageListResponse,
 )
 from src.chats.service import ChatService
 from src.chats.dependencies import get_chat_service
-from src.chats.exceptions import MessageNotFoundException, InvalidLeadException
-from src.common.dependencies import get_current_active_user
-from src.common.schemas import PaginatedResponse, Pagination, ApiResponse
-from src.auth.models import User
-from src.chats.constants import MessageSenderType
+from src.chats.constants import DEFAULT_CHAT_PAGE_SIZE
+from src.common.schemas import Pagination
 
 router = APIRouter(prefix="/api/v1/chats", tags=["chats"])
 
 
-@router.post("/messages", response_model=MessageResponse, status_code=201)
-async def create_message(
-    message_data: MessageCreate,
-    current_user: User = Depends(get_current_active_user),
-    chat_service: ChatService = Depends(get_chat_service),
+# WebSocket Connection Manager
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Dict[int, list[WebSocket]] = {}
+
+    async def connect(self, websocket: WebSocket, lead_id: int):
+        await websocket.accept()
+        if lead_id not in self.active_connections:
+            self.active_connections[lead_id] = []
+        self.active_connections[lead_id].append(websocket)
+
+    def disconnect(self, websocket: WebSocket, lead_id: int):
+        if lead_id in self.active_connections:
+            self.active_connections[lead_id].remove(websocket)
+            if not self.active_connections[lead_id]:
+                del self.active_connections[lead_id]
+
+    async def send_message(self, message: dict, lead_id: int):
+        if lead_id in self.active_connections:
+            connections = self.active_connections[lead_id].copy()
+            for connection in connections:
+                try:
+                    await connection.send_text(json.dumps(message))
+                except:
+                    # Remove disconnected connections
+                    self.disconnect(connection, lead_id)
+
+
+manager = ConnectionManager()
+
+
+@router.get("/", response_model=ChatListResponse)
+async def get_chats(
+    service: ChatService = Depends(get_chat_service),
 ):
-    """Create a new message."""
-    try:
-        message = await chat_service.create_message(message_data)
-        return message
-    except InvalidLeadException as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+    """Get list of chat previews grouped by lead."""
+    chat_previews = await service.get_chats()
+    return ChatListResponse(items=chat_previews)
 
 
-@router.get("/messages", response_model=PaginatedResponse[MessageResponse])
+@router.get("/{lead_id}/messages", response_model=MessageListResponse)
 async def get_messages(
-    page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=100),
-    lead_id: Optional[int] = None,
-    sender_type: Optional[MessageSenderType] = None,
-    is_read: Optional[bool] = None,
-    current_user: User = Depends(get_current_active_user),
-    chat_service: ChatService = Depends(get_chat_service),
-):
-    """Get list of messages with pagination and filters."""
-    filters = MessageFilter(
-        lead_id=lead_id,
-        sender_type=sender_type,
-        is_read=is_read
-    )
-    skip = (page - 1) * size
-
-    messages = await chat_service.get_messages(filters=filters, skip=skip, limit=size)
-    total = await chat_service.count_messages(filters=filters)
-
-    pagination = Pagination(
-        page=page,
-        size=size,
-        total=total,
-        pages=(total + size - 1) // size if total > 0 else 0
-    )
-
-    return PaginatedResponse(
-        items=[MessageResponse.model_validate(message) for message in messages],
-        pagination=pagination
-    )
-
-
-@router.get("/messages/{message_id}", response_model=MessageResponse)
-async def get_message(
-    message_id: int,
-    current_user: User = Depends(get_current_active_user),
-    chat_service: ChatService = Depends(get_chat_service),
-):
-    """Get message by ID."""
-    message = await chat_service.get_message_by_id(message_id)
-    if not message:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Message with id {message_id} not found"
-        )
-    return message
-
-
-@router.put("/messages/{message_id}", response_model=MessageResponse)
-async def update_message(
-    message_id: int,
-    message_data: MessageUpdate,
-    current_user: User = Depends(get_current_active_user),
-    chat_service: ChatService = Depends(get_chat_service),
-):
-    """Update message."""
-    try:
-        updated_message = await chat_service.update_message(message_id, message_data)
-        return updated_message
-    except MessageNotFoundException as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-
-
-@router.delete("/messages/{message_id}", status_code=204)
-async def delete_message(
-    message_id: int,
-    current_user: User = Depends(get_current_active_user),
-    chat_service: ChatService = Depends(get_chat_service),
-):
-    """Delete message."""
-    try:
-        await chat_service.delete_message(message_id)
-        return JSONResponse(status_code=204, content=None)
-    except MessageNotFoundException as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-
-
-@router.post("/leads/{lead_id}/mark-read", response_model=ApiResponse[dict])
-async def mark_messages_as_read(
     lead_id: int,
-    current_user: User = Depends(get_current_active_user),
-    chat_service: ChatService = Depends(get_chat_service),
+    page: int = Query(1, ge=1),
+    size: int = Query(DEFAULT_CHAT_PAGE_SIZE, ge=1, le=100),
+    service: ChatService = Depends(get_chat_service),
 ):
-    """Mark all messages for a lead as read."""
-    count = await chat_service.mark_messages_as_read(lead_id)
-    return ApiResponse(
-        data={"marked_count": count},
-        message=f"Marked {count} messages as read"
+    """Get message history for a specific lead with pagination."""
+    messages, total = await service.get_messages(lead_id, page, size)
+    return MessageListResponse(
+        items=[MessageResponse.model_validate(message) for message in messages],
+        pagination=Pagination(
+            page=page,
+            size=size,
+            total=total,
+            pages=(total + size - 1) // size
+        )
     )
+
+
+@router.post("/{lead_id}/messages", response_model=MessageResponse, status_code=201)
+async def send_message(
+    lead_id: int,
+    message_data: MessageCreate,
+    service: ChatService = Depends(get_chat_service),
+):
+    """Send a message to a lead."""
+    # Override lead_id from path
+    message_data.lead_id = lead_id
+    message = await service.create_message(message_data)
+
+    # Broadcast to WebSocket connections
+    message_dict = {
+        "type": "message",
+        "data": MessageResponse.model_validate(message).model_dump()
+    }
+    await manager.send_message(message_dict, lead_id)
+
+    return MessageResponse.model_validate(message)
+
+
+@router.websocket("/ws/{lead_id}")
+async def websocket_endpoint(
+    websocket: WebSocket,
+    lead_id: int,
+):
+    """WebSocket endpoint for real-time messaging."""
+    from src.core.database import AsyncSessionLocal
+
+    await manager.connect(websocket, lead_id)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            message_data = json.loads(data)
+
+            # Create database session and service
+            async with AsyncSessionLocal() as db:
+                service = ChatService(db)
+
+                # Create message through service
+                create_data = MessageCreate(**message_data)
+                create_data.lead_id = lead_id
+                message = await service.create_message(create_data)
+
+                # Broadcast to all connections for this lead
+                message_dict = {
+                    "type": "message",
+                    "data": MessageResponse.model_validate(message).model_dump()
+                }
+                await manager.send_message(message_dict, lead_id)
+
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, lead_id)
+    except Exception as e:
+        # Send error message and disconnect
+        await websocket.send_text(json.dumps({
+            "type": "error",
+            "message": str(e)
+        }))
+        manager.disconnect(websocket, lead_id)
