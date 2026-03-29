@@ -114,7 +114,6 @@ export function useCalendar() {
     createEvent,
     updateEvent,
     updateEventStatus,
-    deleteEvent,
-    toFullCalendarEvents
+    deleteEvent
   }
 }

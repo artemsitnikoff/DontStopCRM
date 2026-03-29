@@ -66,7 +66,7 @@ class CalendarService:
         result = await self.db.execute(query)
         events = result.scalars().all()
 
-        logger.info(f"Retrieved {len(events)} events, total: {total}")
+        logger.info("Retrieved %d events, total: %d", len(events), total)
         return events, total
 
     async def get_event(self, event_id: int) -> Event:
@@ -74,7 +74,7 @@ class CalendarService:
         result = await self.db.execute(select(Event).where(Event.id == event_id))
         event = result.scalar_one_or_none()
         if not event:
-            logger.warning(f"Event {event_id} not found")
+            logger.warning("Event %d not found", event_id)
             raise EventNotFound(event_id)
         return event
 
@@ -85,7 +85,7 @@ class CalendarService:
             lead_result = await self.db.execute(select(Lead).where(Lead.id == data.lead_id))
             lead = lead_result.scalar_one_or_none()
             if not lead:
-                logger.warning(f"Lead {data.lead_id} not found for event creation")
+                logger.warning("Lead %d not found for event creation", data.lead_id)
                 raise InvalidLeadForEvent(data.lead_id)
 
         db_event = Event(**data.model_dump())
@@ -94,11 +94,11 @@ class CalendarService:
         try:
             await self.db.commit()
             await self.db.refresh(db_event)
-            logger.info(f"Created event {db_event.id}: {db_event.title}")
+            logger.info("Created event %d: %s", db_event.id, db_event.title)
             return db_event
         except Exception as e:
             await self.db.rollback()
-            logger.error(f"Failed to create event: {e}")
+            logger.error("Failed to create event: %s", e)
             raise
 
     async def update_event(self, event_id: int, data: EventUpdate) -> Event:
@@ -110,7 +110,7 @@ class CalendarService:
             lead_result = await self.db.execute(select(Lead).where(Lead.id == data.lead_id))
             lead = lead_result.scalar_one_or_none()
             if not lead:
-                logger.warning(f"Lead {data.lead_id} not found for event update")
+                logger.warning("Lead %d not found for event update", data.lead_id)
                 raise InvalidLeadForEvent(data.lead_id)
 
         update_data = data.model_dump(exclude_unset=True)
@@ -119,17 +119,17 @@ class CalendarService:
 
         # Validate time range after applying partial updates
         if event.end_at <= event.start_at:
-            logger.warning(f"Invalid time range for event {event_id}: end_at <= start_at")
+            logger.warning("Invalid time range for event %d: end_at <= start_at", event_id)
             raise InvalidEventTimeRange()
 
         try:
             await self.db.commit()
             await self.db.refresh(event)
-            logger.info(f"Updated event {event_id}")
+            logger.info("Updated event %d", event_id)
             return event
         except Exception as e:
             await self.db.rollback()
-            logger.error(f"Failed to update event {event_id}: {e}")
+            logger.error("Failed to update event %d: %s", event_id, e)
             raise
 
     async def update_event_status(self, event_id: int, status: EventStatus) -> Event:
@@ -140,11 +140,11 @@ class CalendarService:
         try:
             await self.db.commit()
             await self.db.refresh(event)
-            logger.info(f"Updated event {event_id} status to {status}")
+            logger.info("Updated event %d status to %s", event_id, status)
             return event
         except Exception as e:
             await self.db.rollback()
-            logger.error(f"Failed to update event {event_id} status: {e}")
+            logger.error("Failed to update event %d status: %s", event_id, e)
             raise
 
     async def delete_event(self, event_id: int) -> None:
@@ -154,8 +154,8 @@ class CalendarService:
 
         try:
             await self.db.commit()
-            logger.info(f"Deleted event {event_id}")
+            logger.info("Deleted event %d", event_id)
         except Exception as e:
             await self.db.rollback()
-            logger.error(f"Failed to delete event {event_id}: {e}")
+            logger.error("Failed to delete event %d: %s", event_id, e)
             raise

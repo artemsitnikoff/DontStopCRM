@@ -156,9 +156,9 @@ const updateField = <K extends keyof FormData>(field: K, value: FormData[K]) => 
         :value="modelValue.lead_id"
         class="input"
         :disabled="loadingLeads"
-        @change="updateField('lead_id', $event.target.value ? parseInt($event.target.value) : null)"
+        @change="updateField('lead_id', ($event.target as HTMLSelectElement).value ? parseInt(($event.target as HTMLSelectElement).value) : null)"
       >
-        <option :value="null">Не выбран</option>
+        <option value="">Не выбран</option>
         <option v-for="lead in leads" :key="lead.id" :value="lead.id">
           {{ lead.name }} {{ lead.phone ? `(${lead.phone})` : '' }}
         </option>

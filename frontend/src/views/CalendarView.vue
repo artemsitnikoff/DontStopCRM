@@ -21,6 +21,9 @@ const {
   deleteEvent
 } = useCalendar()
 
+// Calendar ref for API access
+const calendarRef = ref()
+
 // Modal state
 const showEventModal = ref(false)
 const selectedEvent = ref<CalendarEvent | null>(null)
@@ -51,7 +54,9 @@ const calendarOptions = computed((): CalendarOptions => ({
   dayMaxEvents: true,
   weekends: true,
   height: 'auto',
-  events: fullCalendarEvents.value,
+  events: function(info: any, successCallback: Function) {
+    successCallback(fullCalendarEvents.value)
+  },
 
   // Event handlers
   datesSet: handleDatesSet,
@@ -66,6 +71,8 @@ async function handleDatesSet(info: DatesSetArg) {
   const start = info.startStr
   const end = info.endStr
   await fetchEvents(start, end)
+  // Refetch events to update calendar
+  calendarRef.value?.getApi().refetchEvents()
 }
 
 // Handle date selection (open create modal)
@@ -97,6 +104,7 @@ async function handleEventDrop(dropInfo: EventDropArg) {
 
   try {
     await updateEvent(eventId, updateData)
+    calendarRef.value?.getApi().refetchEvents()
   } catch (error) {
     // Revert on error
     dropInfo.revert()
@@ -112,6 +120,7 @@ async function handleEventResize(resizeInfo: EventResizeArg) {
 
   try {
     await updateEvent(eventId, updateData)
+    calendarRef.value?.getApi().refetchEvents()
   } catch (error) {
     // Revert on error
     resizeInfo.revert()
@@ -136,6 +145,7 @@ const handleModalSave = async (data: EventCreate | EventUpdate) => {
       // Create new event
       await createEvent(data as EventCreate)
     }
+    calendarRef.value?.getApi().refetchEvents()
     closeModal()
   } catch (err) {
     // Error is already handled in the composable
@@ -146,6 +156,7 @@ const handleModalSave = async (data: EventCreate | EventUpdate) => {
 const handleModalDelete = async (id: number) => {
   try {
     await deleteEvent(id)
+    calendarRef.value?.getApi().refetchEvents()
     closeModal()
   } catch (err) {
     // Error is already handled in the composable
@@ -188,7 +199,7 @@ const closeModal = () => {
 
     <!-- Calendar -->
     <div class="card p-6">
-      <FullCalendar :options="calendarOptions.value" class="calendar-wrapper" />
+      <FullCalendar ref="calendarRef" :options="calendarOptions" class="calendar-wrapper" />
     </div>
 
     <!-- Event Modal -->
