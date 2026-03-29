@@ -54,7 +54,7 @@ const calendarOptions = computed((): CalendarOptions => ({
   dayMaxEvents: true,
   weekends: true,
   height: 'auto',
-  events: function(info: any, successCallback: Function) {
+  events: function(info: { start: Date; end: Date }, successCallback: (events: unknown[]) => void) {
     successCallback(fullCalendarEvents.value)
   },
 
@@ -105,7 +105,7 @@ async function handleEventDrop(dropInfo: EventDropArg) {
   try {
     await updateEvent(eventId, updateData)
     calendarRef.value?.getApi().refetchEvents()
-  } catch (error) {
+  } catch (_err) {
     // Revert on error
     dropInfo.revert()
   }
@@ -121,7 +121,7 @@ async function handleEventResize(resizeInfo: EventResizeArg) {
   try {
     await updateEvent(eventId, updateData)
     calendarRef.value?.getApi().refetchEvents()
-  } catch (error) {
+  } catch (_err) {
     // Revert on error
     resizeInfo.revert()
   }

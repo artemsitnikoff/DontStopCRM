@@ -27,10 +27,10 @@ class CalendarService:
         status: EventStatus | None
     ) -> Select:
         """Apply filters to query."""
-        if start:
-            query = query.where(Event.start_at >= start)
-        if end:
-            query = query.where(Event.end_at <= end)
+        if start is not None:
+            query = query.where(Event.end_at > start)
+        if end is not None:
+            query = query.where(Event.start_at < end)
         if lead_id is not None:
             query = query.where(Event.lead_id == lead_id)
         if event_type is not None:
