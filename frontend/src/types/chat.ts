@@ -38,11 +38,3 @@ export interface MessageListResponse {
   items: Message[]
   pagination: Pagination
 }
-
-// Keep legacy Chat interface for backward compatibility
-export interface Chat {
-  lead_id: number
-  lead_name: string
-  last_message?: Message
-  unread_count: number
-}

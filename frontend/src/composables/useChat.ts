@@ -59,9 +59,7 @@ export function useChat() {
       // For simplicity, just replace all messages (in real app, you'd handle pagination)
       messages.value = result.items.reverse() // Reverse to show oldest first
 
-      // Scroll to bottom after loading
-      await nextTick()
-      scrollToBottom()
+      // Scrolling handled by component with proper ref
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Ошибка загрузки сообщений'
     } finally {
@@ -88,8 +86,6 @@ export function useChat() {
       // Add message to local state (WebSocket will also send it, but this ensures immediate feedback)
       if (!messages.value.find(m => m.id === newMessage.id)) {
         messages.value.push(newMessage)
-        await nextTick()
-        scrollToBottom()
       }
 
       // Update chat preview
@@ -108,33 +104,34 @@ export function useChat() {
       ws = new WebSocket(wsUrl)
 
       ws.onopen = () => {
-        console.log('WebSocket connected for lead:', leadId)
+        // WebSocket connected
       }
 
       ws.onmessage = async (event) => {
         try {
-          const message = JSON.parse(event.data) as Message
+          const payload = JSON.parse(event.data)
+          if (payload.type === 'message') {
+            const message = payload.data as Message
 
-          // Add message if not already present
-          if (!messages.value.find(m => m.id === message.id)) {
-            messages.value.push(message)
-            await nextTick()
-            scrollToBottom()
+            // Add message if not already present
+            if (!messages.value.find(m => m.id === message.id)) {
+              messages.value.push(message)
+            }
+
+            // Update chat preview
+            updateChatPreview(message)
           }
-
-          // Update chat preview
-          updateChatPreview(message)
         } catch (err) {
-          console.error('Error parsing WebSocket message:', err)
+          // Error parsing WebSocket message
         }
       }
 
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error)
+      ws.onerror = () => {
+        // WebSocket error
       }
 
       ws.onclose = () => {
-        console.log('WebSocket disconnected for lead:', leadId)
+        // WebSocket disconnected
       }
     } catch (err) {
       console.error('Error connecting WebSocket:', err)
@@ -162,10 +159,9 @@ export function useChat() {
     }
   }
 
-  const scrollToBottom = () => {
-    const messagesContainer = document.querySelector('.messages-container')
-    if (messagesContainer) {
-      messagesContainer.scrollTop = messagesContainer.scrollHeight
+  const scrollToBottom = (container: HTMLElement | null) => {
+    if (container) {
+      container.scrollTop = container.scrollHeight
     }
   }
 
@@ -180,6 +176,7 @@ export function useChat() {
     selectChat,
     sendMessage,
     connectWebSocket,
-    disconnectWebSocket
+    disconnectWebSocket,
+    scrollToBottom
   }
 }

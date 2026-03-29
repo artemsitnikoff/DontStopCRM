@@ -1,3 +1,4 @@
+import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload, joinedload
@@ -6,6 +7,8 @@ from src.leads.models import Lead
 from src.chats.schemas import MessageCreate, ChatPreview
 from src.chats.exceptions import ChatNotFound, MessageNotFound
 from src.leads.exceptions import LeadNotFound
+
+logger = logging.getLogger(__name__)
 
 
 class ChatService:
@@ -77,7 +80,6 @@ class ChatService:
         skip = (page - 1) * size
         query = (
             select(Message)
-            .options(selectinload(Message.lead))
             .where(Message.lead_id == lead_id)
             .order_by(Message.created_at.desc())
             .offset(skip)
@@ -99,6 +101,11 @@ class ChatService:
 
         db_message = Message(**data.model_dump())
         self.db.add(db_message)
-        await self.db.commit()
-        await self.db.refresh(db_message)
+        try:
+            await self.db.commit()
+            await self.db.refresh(db_message)
+        except Exception as e:
+            logger.error(f"Failed to commit message: {e}")
+            await self.db.rollback()
+            raise
         return db_message

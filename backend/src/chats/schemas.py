@@ -1,4 +1,3 @@
-from pydantic import BaseModel
 from datetime import datetime
 from src.common.schemas import BaseSchema, BaseResponse, PaginatedResponse
 from src.chats.constants import MessageDirection, MessageSource
@@ -18,8 +17,8 @@ class MessageCreate(BaseSchema):
     lead_id: int
     content: str
     direction: MessageDirection
-    source: MessageSource | None = MessageSource.MANUAL
-    is_from_agent: bool | None = False
+    source: MessageSource = MessageSource.MANUAL
+    is_from_agent: bool = False
 
 
 class MessageUpdate(BaseSchema):

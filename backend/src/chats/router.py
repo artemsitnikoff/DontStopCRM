@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
-from fastapi.responses import JSONResponse
 import json
-from typing import Dict
+import logging
 from src.chats.schemas import (
     MessageCreate,
     MessageResponse,
@@ -11,40 +10,12 @@ from src.chats.schemas import (
 from src.chats.service import ChatService
 from src.chats.dependencies import get_chat_service
 from src.chats.constants import DEFAULT_CHAT_PAGE_SIZE
+from src.chats.ws_manager import manager
 from src.common.schemas import Pagination
+from src.core.database import AsyncSessionLocal
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/chats", tags=["chats"])
-
-
-# WebSocket Connection Manager
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: Dict[int, list[WebSocket]] = {}
-
-    async def connect(self, websocket: WebSocket, lead_id: int):
-        await websocket.accept()
-        if lead_id not in self.active_connections:
-            self.active_connections[lead_id] = []
-        self.active_connections[lead_id].append(websocket)
-
-    def disconnect(self, websocket: WebSocket, lead_id: int):
-        if lead_id in self.active_connections:
-            self.active_connections[lead_id].remove(websocket)
-            if not self.active_connections[lead_id]:
-                del self.active_connections[lead_id]
-
-    async def send_message(self, message: dict, lead_id: int):
-        if lead_id in self.active_connections:
-            connections = self.active_connections[lead_id].copy()
-            for connection in connections:
-                try:
-                    await connection.send_text(json.dumps(message))
-                except:
-                    # Remove disconnected connections
-                    self.disconnect(connection, lead_id)
-
-
-manager = ConnectionManager()
 
 
 @router.get("/", response_model=ChatListResponse)
@@ -90,7 +61,7 @@ async def send_message(
     # Broadcast to WebSocket connections
     message_dict = {
         "type": "message",
-        "data": MessageResponse.model_validate(message).model_dump()
+        "data": MessageResponse.model_validate(message).model_dump(mode='json')
     }
     await manager.send_message(message_dict, lead_id)
 
@@ -103,8 +74,6 @@ async def websocket_endpoint(
     lead_id: int,
 ):
     """WebSocket endpoint for real-time messaging."""
-    from src.core.database import AsyncSessionLocal
-
     await manager.connect(websocket, lead_id)
     try:
         while True:
@@ -123,16 +92,23 @@ async def websocket_endpoint(
                 # Broadcast to all connections for this lead
                 message_dict = {
                     "type": "message",
-                    "data": MessageResponse.model_validate(message).model_dump()
+                    "data": MessageResponse.model_validate(message).model_dump(mode='json')
                 }
                 await manager.send_message(message_dict, lead_id)
 
     except WebSocketDisconnect:
         manager.disconnect(websocket, lead_id)
     except Exception as e:
-        # Send error message and disconnect
-        await websocket.send_text(json.dumps({
-            "type": "error",
-            "message": str(e)
-        }))
+        # Log actual error details
+        logger.error(f"WebSocket error for lead {lead_id}: {e}")
+
+        # Send generic error message to client
+        try:
+            await websocket.send_text(json.dumps({
+                "type": "error",
+                "message": "Internal error"
+            }))
+        except:
+            pass  # Connection might already be closed
+
         manager.disconnect(websocket, lead_id)
