@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import type { Lead, LeadStatus } from '@/types/lead'
+import type { Lead, LeadStatus, LeadCreate } from '@/types/lead'
 import * as leadsApi from '@/api/leads'
 
 const KANBAN_PAGE_SIZE = 1000
@@ -62,12 +62,19 @@ export function useLeads() {
     }
   }
 
+  const createLead = async (data: LeadCreate) => {
+    const newLead = await leadsApi.createLead(data)
+    leads.value.push(newLead)
+    return newLead
+  }
+
   return {
     leads,
     loading,
     error,
     leadsByStatus,
     fetchLeads,
-    moveLeadStatus
+    moveLeadStatus,
+    createLead
   }
 }

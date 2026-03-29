@@ -21,7 +21,7 @@ async def get_leads(
     status: LeadStatus | None = Query(None),
     source: LeadSource | None = Query(None),
     page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=100),
+    size: int = Query(20, ge=1, le=1000),
     service: LeadService = Depends(get_lead_service),
     current_user: User = Depends(get_current_active_user),
 ):

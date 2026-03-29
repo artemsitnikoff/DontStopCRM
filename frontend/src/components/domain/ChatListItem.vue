@@ -16,7 +16,7 @@ const emit = defineEmits<{
 const avatarColor = computed(() => {
   const colors = [
     '#1929bb', // primary
-    '#e03a15', // accent
+    '#6C5CE7', // purple
     '#01faff', // cyan
     '#017d0d', // success
     '#e6a23c', // warning

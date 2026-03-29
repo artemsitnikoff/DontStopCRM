@@ -5,8 +5,8 @@
 :root {
   --color-primary: #1929bb;
   --color-primary-dark: #080c38;
-  --color-accent: #e03a15;
-  --color-accent-light: #c63d5e;
+  --color-accent: #1929bb;
+  --color-accent-light: #d1d4f1;
   --color-cyan: #01faff;
   --color-bg: #f4f4fc;
   --color-bg-alt: #f4f4f4;
@@ -47,7 +47,7 @@
   }
 
   .btn-primary {
-    @apply bg-accent text-white hover:bg-accent-light focus:ring-accent;
+    @apply bg-accent text-white hover:bg-primary-dark focus:ring-accent;
   }
 
   .btn-secondary {
