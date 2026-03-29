@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 import json
 import logging
-import pydantic
+from pydantic import ValidationError
 from src.chats.schemas import (
     MessageCreate,
     MessageCreateBody,
@@ -19,6 +19,44 @@ from src.core.database import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/chats", tags=["chats"])
+
+
+async def _process_ws_message(data: str, lead_id: int, websocket: WebSocket):
+    """Process a WebSocket message and return response or None if successful."""
+    try:
+        message_data = json.loads(data)
+    except json.JSONDecodeError:
+        return {"type": "error", "message": "Invalid JSON"}
+
+    try:
+        # Validate message data without lead_id
+        body_data = MessageCreateBody(**message_data)
+        # Create MessageCreate with lead_id
+        create_data = MessageCreate(**body_data.model_dump(), lead_id=lead_id)
+    except ValidationError:
+        return {"type": "error", "message": "Invalid message format"}
+
+    # Create database session and service
+    async with AsyncSessionLocal() as db:
+        service = ChatService(db)
+
+        try:
+            # Create message through service
+            message = await service.create_message(create_data)
+
+            # Broadcast to all connections for this lead
+            message_dict = {
+                "type": "message",
+                "data": MessageResponse.model_validate(message).model_dump(mode='json')
+            }
+            await manager.send_message(message_dict, lead_id)
+            return None  # Success
+
+        except ChatNotFound as e:
+            return {"type": "error", "message": str(e)}
+        except Exception as e:
+            logger.error(f"WS error: {e}")
+            return {"type": "error", "message": "Internal error"}
 
 
 @router.get("/", response_model=ChatListResponse)
@@ -81,57 +119,11 @@ async def websocket_endpoint(
     try:
         while True:
             data = await websocket.receive_text()
+            error_response = await _process_ws_message(data, lead_id, websocket)
 
-            try:
-                message_data = json.loads(data)
-            except json.JSONDecodeError:
-                await websocket.send_text(json.dumps({
-                    "type": "error",
-                    "message": "Invalid JSON"
-                }))
+            if error_response:
+                await websocket.send_text(json.dumps(error_response))
                 continue
-
-            try:
-                # Validate message data without lead_id
-                body_data = MessageCreateBody(**message_data)
-                # Create MessageCreate with lead_id
-                create_data = MessageCreate(**body_data.model_dump(), lead_id=lead_id)
-            except pydantic.ValidationError:
-                await websocket.send_text(json.dumps({
-                    "type": "error",
-                    "message": "Invalid message format"
-                }))
-                continue
-
-            # Create database session and service
-            async with AsyncSessionLocal() as db:
-                service = ChatService(db)
-
-                try:
-                    # Create message through service
-                    message = await service.create_message(create_data)
-
-                    # Broadcast to all connections for this lead
-                    message_dict = {
-                        "type": "message",
-                        "data": MessageResponse.model_validate(message).model_dump(mode='json')
-                    }
-                    await manager.send_message(message_dict, lead_id)
-
-                except ChatNotFound as e:
-                    await websocket.send_text(json.dumps({
-                        "type": "error",
-                        "message": str(e)
-                    }))
-                    # DON'T break - keep connection alive
-                    continue
-                except Exception as e:
-                    logger.error(f"WS error: {e}")
-                    await websocket.send_text(json.dumps({
-                        "type": "error",
-                        "message": "Internal error"
-                    }))
-                    continue
 
     except WebSocketDisconnect:
         manager.disconnect(websocket, lead_id)

@@ -5,7 +5,6 @@ from src.chats.models import Message
 from src.leads.models import Lead
 from src.chats.schemas import MessageCreate, ChatPreview
 from src.chats.exceptions import ChatNotFound
-from src.leads.exceptions import LeadNotFound
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +26,9 @@ class ChatService:
             .subquery()
         )
 
-    async def get_chats(self) -> list[ChatPreview]:
-        """Get list of chat previews grouped by lead with last message."""
-        # Subquery to get the latest message ID for each lead
-        latest_msg_subquery = (
+    def _build_latest_message_subquery(self):
+        """Build subquery to get the latest message ID for each lead."""
+        return (
             select(
                 Message.lead_id,
                 func.max(Message.id).label("max_id")
@@ -39,7 +37,10 @@ class ChatService:
             .subquery()
         )
 
-        # Subquery to count messages per lead
+    async def get_chats(self) -> list[ChatPreview]:
+        """Get list of chat previews grouped by lead with last message."""
+        # Subqueries for latest message and count
+        latest_msg_subquery = self._build_latest_message_subquery()
         count_subquery = self._build_count_subquery()
 
         # Main query to get chat data
@@ -110,7 +111,7 @@ class ChatService:
             select(Lead).where(Lead.id == data.lead_id)
         )
         if not lead_result.scalar_one_or_none():
-            raise LeadNotFound(data.lead_id)
+            raise ChatNotFound(data.lead_id)
 
         db_message = Message(**data.model_dump())
         self.db.add(db_message)

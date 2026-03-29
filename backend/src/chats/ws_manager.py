@@ -20,7 +20,7 @@ class ConnectionManager:
 
     def disconnect(self, websocket: WebSocket, lead_id: int):
         """Disconnect a WebSocket from a specific lead."""
-        if lead_id in self.active_connections:
+        if lead_id in self.active_connections and websocket in self.active_connections[lead_id]:
             self.active_connections[lead_id].remove(websocket)
             if not self.active_connections[lead_id]:
                 del self.active_connections[lead_id]

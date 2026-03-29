@@ -124,7 +124,7 @@ export function useChat() {
           }
         } catch (err) {
           // Set error state for malformed WebSocket messages
-          error.value = 'Failed to parse WebSocket message'
+          error.value = 'Ошибка обработки сообщения'
         }
       }
 
