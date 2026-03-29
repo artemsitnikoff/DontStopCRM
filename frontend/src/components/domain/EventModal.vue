@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import AppModal from '@/components/ui/AppModal.vue'
 import AppButton from '@/components/ui/AppButton.vue'
-import AppInput from '@/components/ui/AppInput.vue'
+import EventForm from './EventForm.vue'
 import type { CalendarEvent, EventCreate, EventUpdate, EventType, EventStatus } from '@/types/calendar'
 import type { Lead } from '@/types/lead'
 import { getLeads } from '@/api/leads'
@@ -32,7 +32,7 @@ const formData = ref({
   description: '',
   start_at: '',
   end_at: '',
-  event_type: 'booking' as EventType,
+  event_type: 'task' as EventType,
   status: 'planned' as EventStatus,
   lead_id: null as number | null
 })
@@ -44,18 +44,6 @@ const errors = ref({
   end_at: ''
 })
 
-// Dropdown options
-const eventTypeOptions = [
-  { value: 'booking', label: 'Запись' },
-  { value: 'task', label: 'Задача' },
-  { value: 'follow_up', label: 'Напоминание' }
-]
-
-const eventStatusOptions = [
-  { value: 'planned', label: 'Запланировано' },
-  { value: 'done', label: 'Выполнено' },
-  { value: 'cancelled', label: 'Отменено' }
-]
 
 // Leads for dropdown
 const leads = ref<Lead[]>([])
@@ -87,8 +75,8 @@ const loadLeads = async () => {
     loadingLeads.value = true
     const response = await getLeads({ size: 1000 })
     leads.value = response.items
-  } catch (error) {
-    console.error('Failed to load leads:', error)
+  } catch (err) {
+    // Error handling could be improved with user feedback
   } finally {
     loadingLeads.value = false
   }
@@ -114,7 +102,7 @@ const initializeForm = () => {
       description: '',
       start_at: props.initialStart ? formatForInput(props.initialStart) : '',
       end_at: props.initialEnd ? formatForInput(props.initialEnd) : '',
-      event_type: 'booking',
+      event_type: 'task',
       status: 'planned',
       lead_id: null
     }
@@ -199,96 +187,13 @@ onMounted(() => {
 
 <template>
   <AppModal :show="show" :title="title" size="md" @close="emit('close')">
-    <form @submit.prevent="handleSave" class="space-y-4">
-      <!-- Title -->
-      <AppInput
-        v-model="formData.title"
-        label="Название"
-        placeholder="Введите название события"
-        required
-        :error="errors.title"
-      />
-
-      <!-- Description -->
-      <div>
-        <label class="block text-sm font-medium text-text mb-1">Описание</label>
-        <textarea
-          v-model="formData.description"
-          placeholder="Опишите детали события"
-          rows="3"
-          class="input resize-none"
-        ></textarea>
-      </div>
-
-      <!-- Date and time -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm font-medium text-text mb-1">
-            Время начала <span class="text-danger">*</span>
-          </label>
-          <input
-            v-model="formData.start_at"
-            type="datetime-local"
-            required
-            class="input"
-            :class="{ 'border-danger focus:border-danger focus:ring-danger': errors.start_at }"
-          />
-          <p v-if="errors.start_at" class="mt-1 text-sm text-danger">
-            {{ errors.start_at }}
-          </p>
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-text mb-1">
-            Время окончания <span class="text-danger">*</span>
-          </label>
-          <input
-            v-model="formData.end_at"
-            type="datetime-local"
-            required
-            class="input"
-            :class="{ 'border-danger focus:border-danger focus:ring-danger': errors.end_at }"
-          />
-          <p v-if="errors.end_at" class="mt-1 text-sm text-danger">
-            {{ errors.end_at }}
-          </p>
-        </div>
-      </div>
-
-      <!-- Event type -->
-      <div>
-        <label class="block text-sm font-medium text-text mb-1">Тип события</label>
-        <select v-model="formData.event_type" class="input">
-          <option v-for="option in eventTypeOptions" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </option>
-        </select>
-      </div>
-
-      <!-- Status (only in edit mode) -->
-      <div v-if="isEditMode">
-        <label class="block text-sm font-medium text-text mb-1">Статус</label>
-        <select v-model="formData.status" class="input">
-          <option v-for="option in eventStatusOptions" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </option>
-        </select>
-      </div>
-
-      <!-- Lead selection -->
-      <div>
-        <label class="block text-sm font-medium text-text mb-1">Лид</label>
-        <select v-model="formData.lead_id" class="input" :disabled="loadingLeads">
-          <option :value="null">Не выбран</option>
-          <option v-for="lead in leads" :key="lead.id" :value="lead.id">
-            {{ lead.name }} {{ lead.phone ? `(${lead.phone})` : '' }}
-          </option>
-        </select>
-        <p v-if="loadingLeads" class="mt-1 text-sm text-text-secondary">
-          Загрузка лидов...
-        </p>
-      </div>
-    </form>
+    <EventForm
+      v-model="formData"
+      :leads="leads"
+      :is-edit-mode="isEditMode"
+      :loading-leads="loadingLeads"
+      :errors="errors"
+    />
 
     <template #footer>
       <div class="flex justify-between w-full">

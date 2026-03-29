@@ -33,6 +33,8 @@ from src.chats.exceptions import (
 )
 from src.calendar.exceptions import (
     EventNotFound,
+    InvalidLeadForEvent,
+    InvalidEventTimeRange,
 )
 
 
@@ -77,6 +79,8 @@ def create_application() -> FastAPI:
         LeadNotFound: (404, "LEAD_NOT_FOUND"),
         ChatNotFound: (404, "CHAT_NOT_FOUND"),
         EventNotFound: (404, "EVENT_NOT_FOUND"),
+        InvalidLeadForEvent: (400, "INVALID_LEAD_FOR_EVENT"),
+        InvalidEventTimeRange: (400, "INVALID_EVENT_TIME_RANGE"),
     }
 
     # Register exception handlers using the mapping

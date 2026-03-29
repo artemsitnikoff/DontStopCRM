@@ -11,6 +11,7 @@ import { useCalendar } from '@/composables/useCalendar'
 import type { CalendarEvent, EventCreate, EventUpdate } from '@/types/calendar'
 
 const {
+  events,
   fullCalendarEvents,
   loading,
   error,
@@ -26,8 +27,8 @@ const selectedEvent = ref<CalendarEvent | null>(null)
 const selectedStart = ref<string | null>(null)
 const selectedEnd = ref<string | null>(null)
 
-// Calendar options
-const calendarOptions: CalendarOptions = {
+// Calendar options (reactive)
+const calendarOptions = computed((): CalendarOptions => ({
   plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
   headerToolbar: {
     left: 'prev,next today',
@@ -50,7 +51,7 @@ const calendarOptions: CalendarOptions = {
   dayMaxEvents: true,
   weekends: true,
   height: 'auto',
-  events: computed(() => fullCalendarEvents.value),
+  events: fullCalendarEvents.value,
 
   // Event handlers
   datesSet: handleDatesSet,
@@ -58,7 +59,7 @@ const calendarOptions: CalendarOptions = {
   eventClick: handleEventClick,
   eventDrop: handleEventDrop,
   eventResize: handleEventResize
-}
+}))
 
 // Handle date range change (load events for visible range)
 async function handleDatesSet(info: DatesSetArg) {
@@ -80,8 +81,7 @@ function handleDateSelect(selectInfo: DateSelectArg) {
 
 // Handle event click (open edit modal)
 function handleEventClick(clickInfo: EventClickArg) {
-  const eventData = clickInfo.event.extendedProps as CalendarEvent
-  selectedEvent.value = eventData
+  selectedEvent.value = events.value.find(e => e.id === parseInt(clickInfo.event.id)) ?? null
   selectedStart.value = null
   selectedEnd.value = null
   showEventModal.value = true
@@ -137,8 +137,8 @@ const handleModalSave = async (data: EventCreate | EventUpdate) => {
       await createEvent(data as EventCreate)
     }
     closeModal()
-  } catch (error) {
-    console.error('Failed to save event:', error)
+  } catch (err) {
+    // Error is already handled in the composable
   }
 }
 
@@ -147,8 +147,8 @@ const handleModalDelete = async (id: number) => {
   try {
     await deleteEvent(id)
     closeModal()
-  } catch (error) {
-    console.error('Failed to delete event:', error)
+  } catch (err) {
+    // Error is already handled in the composable
   }
 }
 
@@ -188,7 +188,7 @@ const closeModal = () => {
 
     <!-- Calendar -->
     <div class="card p-6">
-      <FullCalendar :options="calendarOptions" class="calendar-wrapper" />
+      <FullCalendar :options="calendarOptions.value" class="calendar-wrapper" />
     </div>
 
     <!-- Event Modal -->

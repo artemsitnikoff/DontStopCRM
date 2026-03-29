@@ -3,7 +3,7 @@ from sqlalchemy import select, func, Select
 from src.calendar.models import Event
 from src.leads.models import Lead
 from src.calendar.schemas import EventCreate, EventUpdate
-from src.calendar.exceptions import EventNotFound
+from src.calendar.exceptions import EventNotFound, InvalidLeadForEvent, InvalidEventTimeRange
 from src.calendar.constants import EventType, EventStatus, DEFAULT_CALENDAR_PAGE_SIZE
 from datetime import datetime
 import logging
@@ -81,53 +81,81 @@ class CalendarService:
     async def create_event(self, data: EventCreate) -> Event:
         """Create new event."""
         # Validate lead exists if lead_id provided
-        if data.lead_id:
+        if data.lead_id is not None:
             lead_result = await self.db.execute(select(Lead).where(Lead.id == data.lead_id))
             lead = lead_result.scalar_one_or_none()
             if not lead:
                 logger.warning(f"Lead {data.lead_id} not found for event creation")
-                raise ValueError(f"Lead with id {data.lead_id} not found")
+                raise InvalidLeadForEvent(data.lead_id)
 
         db_event = Event(**data.model_dump())
         self.db.add(db_event)
-        await self.db.commit()
-        await self.db.refresh(db_event)
-        logger.info(f"Created event {db_event.id}: {db_event.title}")
-        return db_event
+
+        try:
+            await self.db.commit()
+            await self.db.refresh(db_event)
+            logger.info(f"Created event {db_event.id}: {db_event.title}")
+            return db_event
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Failed to create event: {e}")
+            raise
 
     async def update_event(self, event_id: int, data: EventUpdate) -> Event:
         """Update event."""
         event = await self.get_event(event_id)
 
         # Validate lead exists if lead_id provided
-        if data.lead_id:
+        if data.lead_id is not None:
             lead_result = await self.db.execute(select(Lead).where(Lead.id == data.lead_id))
             lead = lead_result.scalar_one_or_none()
             if not lead:
                 logger.warning(f"Lead {data.lead_id} not found for event update")
-                raise ValueError(f"Lead with id {data.lead_id} not found")
+                raise InvalidLeadForEvent(data.lead_id)
 
         update_data = data.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(event, field, value)
 
-        await self.db.commit()
-        await self.db.refresh(event)
-        logger.info(f"Updated event {event_id}")
-        return event
+        # Validate time range after applying partial updates
+        if event.end_at <= event.start_at:
+            logger.warning(f"Invalid time range for event {event_id}: end_at <= start_at")
+            raise InvalidEventTimeRange()
+
+        try:
+            await self.db.commit()
+            await self.db.refresh(event)
+            logger.info(f"Updated event {event_id}")
+            return event
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Failed to update event {event_id}: {e}")
+            raise
 
     async def update_event_status(self, event_id: int, status: EventStatus) -> Event:
         """Update event status only."""
         event = await self.get_event(event_id)
         event.status = status
-        await self.db.commit()
-        await self.db.refresh(event)
-        logger.info(f"Updated event {event_id} status to {status}")
-        return event
+
+        try:
+            await self.db.commit()
+            await self.db.refresh(event)
+            logger.info(f"Updated event {event_id} status to {status}")
+            return event
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Failed to update event {event_id} status: {e}")
+            raise
 
     async def delete_event(self, event_id: int) -> None:
         """Delete event."""
         event = await self.get_event(event_id)
         await self.db.delete(event)
-        await self.db.commit()
-        logger.info(f"Deleted event {event_id}")
+
+        try:
+            await self.db.commit()
+            logger.info(f"Deleted event {event_id}")
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Failed to delete event {event_id}: {e}")
+            raise
