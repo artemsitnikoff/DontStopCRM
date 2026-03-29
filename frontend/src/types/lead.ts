@@ -1,42 +1,35 @@
-export enum LeadStatus {
-  New = 'new',
-  Contacted = 'contacted',
-  Qualified = 'qualified',
-  Proposal = 'proposal',
-  Won = 'won',
-  Lost = 'lost'
-}
+export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'won'
+export type LeadSource = 'telegram' | 'whatsapp' | 'instagram' | 'phone'
 
 export interface Lead {
   id: number
   name: string
-  email?: string
-  phone?: string
+  phone: string | null
+  source: LeadSource
   status: LeadStatus
-  value?: number
-  notes?: string
-  source?: string
-  assigned_to?: number
+  first_message: string | null
   created_at: string
   updated_at: string
 }
 
 export interface LeadCreate {
   name: string
-  email?: string
   phone?: string
-  status?: LeadStatus
-  value?: number
-  notes?: string
-  source?: string
+  source?: LeadSource
+  first_message?: string
 }
 
 export interface LeadUpdate {
   name?: string
-  email?: string
   phone?: string
+  source?: LeadSource
   status?: LeadStatus
-  value?: number
-  notes?: string
-  assigned_to?: number
+  first_message?: string
+}
+
+export interface LeadListResponse {
+  items: Lead[]
+  total: number
+  page: number
+  size: number
 }
