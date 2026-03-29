@@ -4,7 +4,7 @@ from sqlalchemy import select, func
 from src.chats.models import Message
 from src.leads.models import Lead
 from src.chats.schemas import MessageCreate, ChatPreview
-from src.chats.exceptions import ChatNotFound, MessageNotFound
+from src.chats.exceptions import ChatNotFound
 from src.leads.exceptions import LeadNotFound
 
 logger = logging.getLogger(__name__)
@@ -29,11 +29,11 @@ class ChatService:
 
     async def get_chats(self) -> list[ChatPreview]:
         """Get list of chat previews grouped by lead with last message."""
-        # Subquery to get the latest message for each lead
-        latest_message_subquery = (
+        # Subquery to get the latest message ID for each lead
+        latest_msg_subquery = (
             select(
                 Message.lead_id,
-                func.max(Message.created_at).label("last_message_time")
+                func.max(Message.id).label("max_id")
             )
             .group_by(Message.lead_id)
             .subquery()
@@ -55,9 +55,8 @@ class ChatService:
             .select_from(Lead)
             .join(Message, Lead.id == Message.lead_id)
             .join(
-                latest_message_subquery,
-                (Message.lead_id == latest_message_subquery.c.lead_id) &
-                (Message.created_at == latest_message_subquery.c.last_message_time)
+                latest_msg_subquery,
+                Message.id == latest_msg_subquery.c.max_id
             )
             .join(count_subquery, Lead.id == count_subquery.c.lead_id)
             .order_by(Message.created_at.desc())

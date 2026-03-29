@@ -58,7 +58,7 @@ export function useChat() {
       const result = await chatsApi.getMessages(leadId, { page, size })
 
       // For simplicity, just replace all messages (in real app, you'd handle pagination)
-      messages.value = result.items.reverse() // Reverse to show oldest first
+      messages.value = [...result.items].reverse() // Reverse to show oldest first
 
       // Scrolling handled by component with proper ref
     } catch (err) {
@@ -123,7 +123,8 @@ export function useChat() {
             updateChatPreview(message)
           }
         } catch (err) {
-          // Error parsing WebSocket message
+          // Set error state for malformed WebSocket messages
+          error.value = 'Failed to parse WebSocket message'
         }
       }
 

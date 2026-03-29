@@ -1,6 +1,5 @@
 import json
 import logging
-from typing import Dict
 from fastapi import WebSocket
 
 logger = logging.getLogger(__name__)
@@ -10,7 +9,7 @@ class ConnectionManager:
     """WebSocket connection manager for chat functionality."""
 
     def __init__(self):
-        self.active_connections: Dict[int, list[WebSocket]] = {}
+        self.active_connections: dict[int, list[WebSocket]] = {}
 
     async def connect(self, websocket: WebSocket, lead_id: int):
         """Connect a WebSocket for a specific lead."""

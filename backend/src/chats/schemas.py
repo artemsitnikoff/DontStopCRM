@@ -3,13 +3,17 @@ from src.common.schemas import BaseSchema, BaseResponse, PaginatedResponse
 from src.chats.constants import MessageDirection, MessageSource
 
 
-class MessageCreate(BaseSchema):
-    """Message creation schema."""
-    lead_id: int
+class MessageCreateBody(BaseSchema):
+    """Message creation schema for HTTP body (without lead_id)."""
     content: str
     direction: MessageDirection
     source: MessageSource = MessageSource.MANUAL
     is_from_agent: bool = False
+
+
+class MessageCreate(MessageCreateBody):
+    """Message creation schema for internal use (with lead_id)."""
+    lead_id: int
 
 
 class MessageUpdate(BaseSchema):

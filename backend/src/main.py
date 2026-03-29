@@ -30,7 +30,6 @@ from src.leads.exceptions import (
 )
 from src.chats.exceptions import (
     ChatNotFound,
-    MessageNotFound,
 )
 from src.calendar.exceptions import (
     AppointmentNotFoundException,
@@ -79,7 +78,6 @@ def create_application() -> FastAPI:
         InactiveUserException: (400, "INACTIVE_USER"),
         LeadNotFound: (404, "LEAD_NOT_FOUND"),
         ChatNotFound: (404, "CHAT_NOT_FOUND"),
-        MessageNotFound: (404, "MESSAGE_NOT_FOUND"),
         AppointmentNotFoundException: (404, "APPOINTMENT_NOT_FOUND"),
         CalendarInvalidLeadException: (400, "CALENDAR_INVALID_LEAD"),
         TimeSlotConflictException: (409, "TIME_SLOT_CONFLICT"),

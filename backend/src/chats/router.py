@@ -4,12 +4,14 @@ import logging
 import pydantic
 from src.chats.schemas import (
     MessageCreate,
+    MessageCreateBody,
     MessageResponse,
     ChatListResponse,
     MessageListResponse,
 )
 from src.chats.service import ChatService
 from src.chats.dependencies import get_chat_service
+from src.chats.exceptions import ChatNotFound
 from src.chats.constants import DEFAULT_CHAT_PAGE_SIZE
 from src.chats.ws_manager import manager
 from src.common.schemas import Pagination
@@ -51,13 +53,13 @@ async def get_messages(
 @router.post("/{lead_id}/messages", response_model=MessageResponse, status_code=201)
 async def send_message(
     lead_id: int,
-    message_data: MessageCreate,
+    message_data: MessageCreateBody,
     service: ChatService = Depends(get_chat_service),
 ):
     """Send a message to a lead."""
-    # Override lead_id from path
-    message_data.lead_id = lead_id
-    message = await service.create_message(message_data)
+    # Create MessageCreate with lead_id from path
+    create_data = MessageCreate(**message_data.model_dump(), lead_id=lead_id)
+    message = await service.create_message(create_data)
 
     # Broadcast to WebSocket connections
     message_dict = {
@@ -90,9 +92,10 @@ async def websocket_endpoint(
                 continue
 
             try:
-                # Validate message data
-                create_data = MessageCreate(**message_data)
-                create_data.lead_id = lead_id
+                # Validate message data without lead_id
+                body_data = MessageCreateBody(**message_data)
+                # Create MessageCreate with lead_id
+                create_data = MessageCreate(**body_data.model_dump(), lead_id=lead_id)
             except pydantic.ValidationError:
                 await websocket.send_text(json.dumps({
                     "type": "error",
@@ -104,15 +107,31 @@ async def websocket_endpoint(
             async with AsyncSessionLocal() as db:
                 service = ChatService(db)
 
-                # Create message through service
-                message = await service.create_message(create_data)
+                try:
+                    # Create message through service
+                    message = await service.create_message(create_data)
 
-                # Broadcast to all connections for this lead
-                message_dict = {
-                    "type": "message",
-                    "data": MessageResponse.model_validate(message).model_dump(mode='json')
-                }
-                await manager.send_message(message_dict, lead_id)
+                    # Broadcast to all connections for this lead
+                    message_dict = {
+                        "type": "message",
+                        "data": MessageResponse.model_validate(message).model_dump(mode='json')
+                    }
+                    await manager.send_message(message_dict, lead_id)
+
+                except ChatNotFound as e:
+                    await websocket.send_text(json.dumps({
+                        "type": "error",
+                        "message": str(e)
+                    }))
+                    # DON'T break - keep connection alive
+                    continue
+                except Exception as e:
+                    logger.error(f"WS error: {e}")
+                    await websocket.send_text(json.dumps({
+                        "type": "error",
+                        "message": "Internal error"
+                    }))
+                    continue
 
     except WebSocketDisconnect:
         manager.disconnect(websocket, lead_id)
