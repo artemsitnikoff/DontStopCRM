@@ -29,8 +29,8 @@ export function useLeads() {
     try {
       loading.value = true
       error.value = null
-      // Fetch all leads without status filter for kanban view
-      const response = await leadsApi.getLeads()
+      // Fetch all leads without status filter for kanban view with large size
+      const response = await leadsApi.getLeads({ size: 1000 })
       leads.value = response.items
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Ошибка загрузки лидов'

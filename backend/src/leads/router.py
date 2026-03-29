@@ -24,11 +24,15 @@ async def get_leads(
 ):
     """Get list of leads with filters and pagination."""
     leads, total = await service.get_leads(status, source, page, size)
+    from src.common.schemas import Pagination
     return LeadListResponse(
         items=[LeadResponse.model_validate(lead) for lead in leads],
-        total=total,
-        page=page,
-        size=size
+        pagination=Pagination(
+            page=page,
+            size=size,
+            total=total,
+            pages=(total + size - 1) // size
+        )
     )
 
 
@@ -52,13 +56,13 @@ async def create_lead(
     return LeadResponse.model_validate(lead)
 
 
-@router.put("/{lead_id}", response_model=LeadResponse)
+@router.patch("/{lead_id}", response_model=LeadResponse)
 async def update_lead(
     lead_id: int,
     data: LeadUpdate,
     service: LeadService = Depends(get_lead_service),
 ):
-    """Update lead (full update)."""
+    """Update lead (partial update)."""
     lead = await service.update_lead(lead_id, data)
     return LeadResponse.model_validate(lead)
 

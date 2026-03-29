@@ -12,6 +12,14 @@ class LeadService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    def _apply_filters(self, query, status_filter: LeadStatus | None, source_filter: LeadSource | None):
+        """Apply status and source filters to query."""
+        if status_filter is not None:
+            query = query.where(Lead.status == status_filter)
+        if source_filter is not None:
+            query = query.where(Lead.source == source_filter)
+        return query
+
     async def get_leads(
         self,
         status_filter: LeadStatus | None = None,
@@ -21,18 +29,11 @@ class LeadService:
     ) -> tuple[list[Lead], int]:
         """Get leads with filters and pagination."""
         query = select(Lead)
-
-        if status_filter:
-            query = query.where(Lead.status == status_filter)
-        if source_filter:
-            query = query.where(Lead.source == source_filter)
+        query = self._apply_filters(query, status_filter, source_filter)
 
         # Count total
         count_query = select(func.count(Lead.id))
-        if status_filter:
-            count_query = count_query.where(Lead.status == status_filter)
-        if source_filter:
-            count_query = count_query.where(Lead.source == source_filter)
+        count_query = self._apply_filters(count_query, status_filter, source_filter)
 
         total_result = await self.db.execute(count_query)
         total = total_result.scalar()

@@ -10,6 +10,6 @@ class Lead(BaseModel):
 
     name = Column(String(255), nullable=False)
     phone = Column(String(20), nullable=True)
-    source = Column(Enum(LeadSource), nullable=False, default=LeadSource.PHONE)
-    status = Column(Enum(LeadStatus), nullable=False, default=LeadStatus.NEW)
+    source = Column(Enum(LeadSource), nullable=False, default=LeadSource.PHONE, index=True)
+    status = Column(Enum(LeadStatus), nullable=False, default=LeadStatus.NEW, index=True)
     first_message = Column(Text, nullable=True)

@@ -4,6 +4,12 @@ import draggable from 'vuedraggable'
 import LeadCard from './LeadCard.vue'
 import type { Lead, LeadStatus } from '@/types/lead'
 
+interface DraggableChangeEvent {
+  added?: { element: Lead; newIndex: number }
+  removed?: { element: Lead; oldIndex: number }
+  moved?: { element: Lead; oldIndex: number; newIndex: number }
+}
+
 const props = defineProps<{
   title: string
   status: LeadStatus
@@ -17,7 +23,7 @@ const emit = defineEmits<{
 
 const drag = ref(false)
 
-const onChange = (event: any) => {
+const onChange = (event: DraggableChangeEvent) => {
   if (event.added) {
     const { element } = event.added
     emit('leadMoved', element.id, props.status)
@@ -66,19 +72,6 @@ const onChange = (event: any) => {
 </template>
 
 <style scoped>
-.ghost {
-  opacity: 0.5;
-  background: var(--color-bg);
-}
-
-.flip-list-move {
-  transition: transform 0.5s;
-}
-
-.no-move {
-  transition: transform 0s;
-}
-
 .ghost {
   opacity: 0.5;
   background: var(--color-primary);

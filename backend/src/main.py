@@ -71,109 +71,34 @@ def create_application() -> FastAPI:
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_exception_handler(Exception, general_exception_handler)
 
-    # Auth module exception handlers
-    @app.exception_handler(UserNotFoundException)
-    async def user_not_found_handler(request, exc):
-        return JSONResponse(
-            status_code=404,
-            content={
-                "error": "USER_NOT_FOUND",
-                "detail": str(exc),
-            },
-        )
+    # Custom exception handlers mapping
+    EXCEPTION_HANDLERS = {
+        UserNotFoundException: (404, "USER_NOT_FOUND"),
+        InvalidCredentialsException: (401, "INVALID_CREDENTIALS"),
+        UserAlreadyExistsException: (400, "USER_ALREADY_EXISTS"),
+        InactiveUserException: (400, "INACTIVE_USER"),
+        LeadNotFound: (404, "LEAD_NOT_FOUND"),
+        MessageNotFoundException: (404, "MESSAGE_NOT_FOUND"),
+        ChatInvalidLeadException: (400, "INVALID_LEAD"),
+        AppointmentNotFoundException: (404, "APPOINTMENT_NOT_FOUND"),
+        CalendarInvalidLeadException: (400, "INVALID_LEAD"),
+        TimeSlotConflictException: (409, "TIME_SLOT_CONFLICT"),
+    }
 
-    @app.exception_handler(InvalidCredentialsException)
-    async def invalid_credentials_handler(request, exc):
-        return JSONResponse(
-            status_code=401,
-            content={
-                "error": "INVALID_CREDENTIALS",
-                "detail": str(exc),
-            },
-        )
+    # Register exception handlers using the mapping
+    for exc_class, (status_code, error_code) in EXCEPTION_HANDLERS.items():
+        def create_handler(status: int, code: str):
+            async def handler(request, exc):
+                return JSONResponse(
+                    status_code=status,
+                    content={
+                        "error": code,
+                        "detail": str(exc),
+                    },
+                )
+            return handler
 
-    @app.exception_handler(UserAlreadyExistsException)
-    async def user_already_exists_handler(request, exc):
-        return JSONResponse(
-            status_code=400,
-            content={
-                "error": "USER_ALREADY_EXISTS",
-                "detail": str(exc),
-            },
-        )
-
-    @app.exception_handler(InactiveUserException)
-    async def inactive_user_handler(request, exc):
-        return JSONResponse(
-            status_code=400,
-            content={
-                "error": "INACTIVE_USER",
-                "detail": str(exc),
-            },
-        )
-
-    # Leads module exception handlers
-    @app.exception_handler(LeadNotFound)
-    async def lead_not_found_handler(request, exc):
-        return JSONResponse(
-            status_code=404,
-            content={
-                "error": "LEAD_NOT_FOUND",
-                "detail": str(exc),
-            },
-        )
-
-    # Chats module exception handlers
-    @app.exception_handler(MessageNotFoundException)
-    async def message_not_found_handler(request, exc):
-        return JSONResponse(
-            status_code=404,
-            content={
-                "error": "MESSAGE_NOT_FOUND",
-                "detail": str(exc),
-            },
-        )
-
-    @app.exception_handler(ChatInvalidLeadException)
-    async def chat_invalid_lead_handler(request, exc):
-        return JSONResponse(
-            status_code=400,
-            content={
-                "error": "INVALID_LEAD",
-                "detail": str(exc),
-            },
-        )
-
-    # Calendar module exception handlers
-    @app.exception_handler(AppointmentNotFoundException)
-    async def appointment_not_found_handler(request, exc):
-        return JSONResponse(
-            status_code=404,
-            content={
-                "error": "APPOINTMENT_NOT_FOUND",
-                "detail": str(exc),
-            },
-        )
-
-    @app.exception_handler(CalendarInvalidLeadException)
-    async def calendar_invalid_lead_handler(request, exc):
-        return JSONResponse(
-            status_code=400,
-            content={
-                "error": "INVALID_LEAD",
-                "detail": str(exc),
-            },
-        )
-
-    @app.exception_handler(TimeSlotConflictException)
-    async def time_slot_conflict_handler(request, exc):
-        return JSONResponse(
-            status_code=409,
-            content={
-                "error": "TIME_SLOT_CONFLICT",
-                "detail": str(exc),
-            },
-        )
+        app.add_exception_handler(exc_class, create_handler(status_code, error_code))
 
     @app.get("/")
     async def root():
