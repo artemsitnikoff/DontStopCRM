@@ -26,8 +26,7 @@ from src.auth.exceptions import (
     InactiveUserException,
 )
 from src.leads.exceptions import (
-    LeadNotFoundException,
-    LeadAlreadyExistsException,
+    LeadNotFound,
 )
 from src.chats.exceptions import (
     MessageNotFoundException,
@@ -114,22 +113,12 @@ def create_application() -> FastAPI:
         )
 
     # Leads module exception handlers
-    @app.exception_handler(LeadNotFoundException)
+    @app.exception_handler(LeadNotFound)
     async def lead_not_found_handler(request, exc):
         return JSONResponse(
             status_code=404,
             content={
                 "error": "LEAD_NOT_FOUND",
-                "detail": str(exc),
-            },
-        )
-
-    @app.exception_handler(LeadAlreadyExistsException)
-    async def lead_already_exists_handler(request, exc):
-        return JSONResponse(
-            status_code=400,
-            content={
-                "error": "LEAD_ALREADY_EXISTS",
                 "detail": str(exc),
             },
         )

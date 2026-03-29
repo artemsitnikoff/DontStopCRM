@@ -1,6 +1,6 @@
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
-from src.common.schemas import BaseResponse
+from src.common.schemas import BaseResponse, PaginatedResponse
 from src.leads.constants import LeadStatus, LeadSource
 
 
@@ -8,10 +8,8 @@ class LeadBase(BaseModel):
     """Base lead schema."""
     name: str
     phone: Optional[str] = None
-    email: Optional[EmailStr] = None
-    status: LeadStatus = LeadStatus.NEW
-    source: LeadSource = LeadSource.OTHER
-    notes: Optional[str] = None
+    source: LeadSource = LeadSource.PHONE
+    first_message: Optional[str] = None
 
 
 class LeadCreate(LeadBase):
@@ -23,19 +21,32 @@ class LeadUpdate(BaseModel):
     """Lead update schema."""
     name: Optional[str] = None
     phone: Optional[str] = None
-    email: Optional[EmailStr] = None
-    status: Optional[LeadStatus] = None
     source: Optional[LeadSource] = None
-    notes: Optional[str] = None
+    status: Optional[LeadStatus] = None
+    first_message: Optional[str] = None
 
 
-class LeadResponse(BaseResponse, LeadBase):
+class LeadStatusUpdate(BaseModel):
+    """Lead status update schema for drag-n-drop."""
+    status: LeadStatus
+
+
+class LeadResponse(BaseResponse):
     """Lead response schema."""
+    name: str
+    phone: Optional[str] = None
+    source: LeadSource
+    status: LeadStatus
+    first_message: Optional[str] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 
-class LeadFilter(BaseModel):
-    """Lead filter schema."""
-    status: Optional[LeadStatus] = None
-    source: Optional[LeadSource] = None
-    search: Optional[str] = None  # Search in name, phone, email
+class LeadListResponse(BaseModel):
+    """Lead list response schema with pagination."""
+    items: list[LeadResponse]
+    total: int
+    page: int
+    size: int
+
+    model_config = ConfigDict(from_attributes=True)

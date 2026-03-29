@@ -4,17 +4,14 @@ from enum import Enum
 class LeadStatus(str, Enum):
     """Lead status enum."""
     NEW = "new"
-    CONTACT = "contact"
+    CONTACTED = "contacted"
     QUALIFIED = "qualified"
     WON = "won"
 
 
 class LeadSource(str, Enum):
     """Lead source enum."""
-    WEBSITE = "website"
+    TELEGRAM = "telegram"
+    WHATSAPP = "whatsapp"
+    INSTAGRAM = "instagram"
     PHONE = "phone"
-    EMAIL = "email"
-    REFERRAL = "referral"
-    SOCIAL_MEDIA = "social_media"
-    ADVERTISING = "advertising"
-    OTHER = "other"

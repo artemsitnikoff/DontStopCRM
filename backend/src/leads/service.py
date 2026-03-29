@@ -1,9 +1,9 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_, func
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import select, func
 from src.leads.models import Lead
-from src.leads.schemas import LeadCreate, LeadUpdate, LeadFilter
-from src.leads.exceptions import LeadNotFoundException, LeadAlreadyExistsException
+from src.leads.schemas import LeadCreate, LeadUpdate
+from src.leads.exceptions import LeadNotFound
+from src.leads.constants import LeadStatus, LeadSource
 
 
 class LeadService:
@@ -12,106 +12,77 @@ class LeadService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def create_lead(self, lead_data: LeadCreate) -> Lead:
-        """Create a new lead."""
-        try:
-            db_lead = Lead(**lead_data.model_dump())
-            self.db.add(db_lead)
-            await self.db.commit()
-            await self.db.refresh(db_lead)
-            return db_lead
-        except IntegrityError as e:
-            await self.db.rollback()
-            if "phone" in str(e):
-                raise LeadAlreadyExistsException("phone", lead_data.phone)
-            elif "email" in str(e):
-                raise LeadAlreadyExistsException("email", lead_data.email)
-            raise e
-
-    async def get_lead_by_id(self, lead_id: int) -> Lead | None:
-        """Get lead by ID."""
-        result = await self.db.execute(select(Lead).where(Lead.id == lead_id))
-        return result.scalar_one_or_none()
-
     async def get_leads(
         self,
-        filters: LeadFilter = None,
-        skip: int = 0,
-        limit: int = 100
-    ) -> list[Lead]:
-        """Get list of leads with optional filters."""
+        status_filter: LeadStatus | None = None,
+        source_filter: LeadSource | None = None,
+        page: int = 1,
+        size: int = 20
+    ) -> tuple[list[Lead], int]:
+        """Get leads with filters and pagination."""
         query = select(Lead)
 
-        if filters:
-            if filters.status:
-                query = query.where(Lead.status == filters.status)
-            if filters.source:
-                query = query.where(Lead.source == filters.source)
-            if filters.search:
-                search_term = f"%{filters.search}%"
-                query = query.where(
-                    or_(
-                        Lead.name.ilike(search_term),
-                        Lead.phone.ilike(search_term),
-                        Lead.email.ilike(search_term)
-                    )
-                )
+        if status_filter:
+            query = query.where(Lead.status == status_filter)
+        if source_filter:
+            query = query.where(Lead.source == source_filter)
 
-        query = query.offset(skip).limit(limit).order_by(Lead.created_at.desc())
+        # Count total
+        count_query = select(func.count(Lead.id))
+        if status_filter:
+            count_query = count_query.where(Lead.status == status_filter)
+        if source_filter:
+            count_query = count_query.where(Lead.source == source_filter)
+
+        total_result = await self.db.execute(count_query)
+        total = total_result.scalar()
+
+        # Get items with pagination
+        skip = (page - 1) * size
+        query = query.offset(skip).limit(size).order_by(Lead.created_at.desc())
         result = await self.db.execute(query)
-        return result.scalars().all()
+        leads = result.scalars().all()
 
-    async def count_leads(self, filters: LeadFilter = None) -> int:
-        """Count leads with optional filters."""
-        query = select(func.count(Lead.id))
+        return leads, total
 
-        if filters:
-            if filters.status:
-                query = query.where(Lead.status == filters.status)
-            if filters.source:
-                query = query.where(Lead.source == filters.source)
-            if filters.search:
-                search_term = f"%{filters.search}%"
-                query = query.where(
-                    or_(
-                        Lead.name.ilike(search_term),
-                        Lead.phone.ilike(search_term),
-                        Lead.email.ilike(search_term)
-                    )
-                )
+    async def get_lead(self, lead_id: int) -> Lead:
+        """Get lead by ID or raise LeadNotFound."""
+        result = await self.db.execute(select(Lead).where(Lead.id == lead_id))
+        lead = result.scalar_one_or_none()
+        if not lead:
+            raise LeadNotFound(lead_id)
+        return lead
 
-        result = await self.db.execute(query)
-        return result.scalar()
+    async def create_lead(self, data: LeadCreate) -> Lead:
+        """Create new lead."""
+        db_lead = Lead(**data.model_dump())
+        self.db.add(db_lead)
+        await self.db.commit()
+        await self.db.refresh(db_lead)
+        return db_lead
 
-    async def update_lead(self, lead_id: int, lead_data: LeadUpdate) -> Lead:
+    async def update_lead(self, lead_id: int, data: LeadUpdate) -> Lead:
         """Update lead."""
-        lead = await self.get_lead_by_id(lead_id)
-        if not lead:
-            raise LeadNotFoundException(lead_id)
+        lead = await self.get_lead(lead_id)
 
-        update_data = lead_data.model_dump(exclude_unset=True)
+        update_data = data.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(lead, field, value)
 
-        try:
-            for field, value in update_data.items():
-                setattr(lead, field, value)
+        await self.db.commit()
+        await self.db.refresh(lead)
+        return lead
 
-            await self.db.commit()
-            await self.db.refresh(lead)
-            return lead
-        except IntegrityError as e:
-            await self.db.rollback()
-            if "phone" in str(e):
-                raise LeadAlreadyExistsException("phone", lead_data.phone)
-            elif "email" in str(e):
-                raise LeadAlreadyExistsException("email", lead_data.email)
-            raise e
+    async def update_lead_status(self, lead_id: int, status: LeadStatus) -> Lead:
+        """Update lead status only."""
+        lead = await self.get_lead(lead_id)
+        lead.status = status
+        await self.db.commit()
+        await self.db.refresh(lead)
+        return lead
 
-    async def delete_lead(self, lead_id: int) -> bool:
+    async def delete_lead(self, lead_id: int) -> None:
         """Delete lead."""
-        lead = await self.get_lead_by_id(lead_id)
-        if not lead:
-            raise LeadNotFoundException(lead_id)
-
+        lead = await self.get_lead(lead_id)
         await self.db.delete(lead)
         await self.db.commit()
-        return True
