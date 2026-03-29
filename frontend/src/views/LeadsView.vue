@@ -4,30 +4,17 @@ import AppButton from '@/components/ui/AppButton.vue'
 import KanbanColumn from '@/components/domain/KanbanColumn.vue'
 import { useLeads } from '@/composables/useLeads'
 import type { LeadStatus } from '@/types/lead'
+import { STATUS_LABELS, STATUS_COLORS } from '@/constants/leads'
 
 const { leadsByStatus, loading, error, moveLeadStatus, fetchLeads } = useLeads()
 
 onMounted(() => fetchLeads())
 
-const statusLabels = {
-  new: 'Новый',
-  contacted: 'Контакт',
-  qualified: 'Квалифицирован',
-  won: 'Выигран'
-}
-
-const statusColors = {
-  new: '#1929bb',
-  contacted: '#e6a23c',
-  qualified: '#6C5CE7',
-  won: '#017d0d'
-}
-
 const columns = [
-  { status: 'new' as LeadStatus, title: statusLabels.new, color: statusColors.new },
-  { status: 'contacted' as LeadStatus, title: statusLabels.contacted, color: statusColors.contacted },
-  { status: 'qualified' as LeadStatus, title: statusLabels.qualified, color: statusColors.qualified },
-  { status: 'won' as LeadStatus, title: statusLabels.won, color: statusColors.won }
+  { status: 'new' as LeadStatus, title: STATUS_LABELS.new, color: STATUS_COLORS.new },
+  { status: 'contacted' as LeadStatus, title: STATUS_LABELS.contacted, color: STATUS_COLORS.contacted },
+  { status: 'qualified' as LeadStatus, title: STATUS_LABELS.qualified, color: STATUS_COLORS.qualified },
+  { status: 'won' as LeadStatus, title: STATUS_LABELS.won, color: STATUS_COLORS.won }
 ]
 
 const handleLeadMoved = async (leadId: number, newStatus: LeadStatus) => {

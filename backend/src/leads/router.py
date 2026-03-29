@@ -10,6 +10,8 @@ from src.leads.service import LeadService
 from src.leads.dependencies import get_lead_service
 from src.leads.constants import LeadStatus, LeadSource
 from src.common.schemas import Pagination
+from src.common.dependencies import get_current_active_user
+from src.auth.models import User
 
 router = APIRouter(prefix="/api/v1/leads", tags=["leads"])
 
@@ -21,6 +23,7 @@ async def get_leads(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     service: LeadService = Depends(get_lead_service),
+    current_user: User = Depends(get_current_active_user),
 ):
     """Get list of leads with filters and pagination."""
     leads, total = await service.get_leads(status, source, page, size)
@@ -39,6 +42,7 @@ async def get_leads(
 async def get_lead(
     lead_id: int,
     service: LeadService = Depends(get_lead_service),
+    current_user: User = Depends(get_current_active_user),
 ):
     """Get single lead by ID."""
     lead = await service.get_lead(lead_id)
@@ -49,6 +53,7 @@ async def get_lead(
 async def create_lead(
     data: LeadCreate,
     service: LeadService = Depends(get_lead_service),
+    current_user: User = Depends(get_current_active_user),
 ):
     """Create new lead."""
     lead = await service.create_lead(data)
@@ -60,6 +65,7 @@ async def update_lead(
     lead_id: int,
     data: LeadUpdate,
     service: LeadService = Depends(get_lead_service),
+    current_user: User = Depends(get_current_active_user),
 ):
     """Update lead (partial update)."""
     lead = await service.update_lead(lead_id, data)
@@ -71,6 +77,7 @@ async def update_lead_status(
     lead_id: int,
     data: LeadStatusUpdate,
     service: LeadService = Depends(get_lead_service),
+    current_user: User = Depends(get_current_active_user),
 ):
     """Update lead status only (for kanban drag-n-drop)."""
     lead = await service.update_lead_status(lead_id, data.status)
@@ -81,6 +88,7 @@ async def update_lead_status(
 async def delete_lead(
     lead_id: int,
     service: LeadService = Depends(get_lead_service),
+    current_user: User = Depends(get_current_active_user),
 ):
     """Delete lead."""
     await service.delete_lead(lead_id)

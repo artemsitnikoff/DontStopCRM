@@ -5,6 +5,7 @@ from src.core.database import get_db
 from src.core.security import verify_token
 from src.auth.service import AuthService
 from typing import Optional
+from src.auth.models import User
 
 security = HTTPBearer()
 
@@ -12,7 +13,7 @@ security = HTTPBearer()
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db),
-):
+) -> User:
     """Get current authenticated user."""
     token = credentials.credentials
     payload = verify_token(token)
@@ -43,14 +44,14 @@ async def get_current_user(
 
 
 async def get_current_active_user(
-    current_user = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Get current active user."""
     return current_user
 
 
 async def get_current_admin_user(
-    current_user = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Get current admin user."""
     if current_user.role != "admin":

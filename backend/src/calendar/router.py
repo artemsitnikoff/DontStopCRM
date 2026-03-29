@@ -11,6 +11,8 @@ from src.calendar.service import CalendarService
 from src.calendar.dependencies import get_calendar_service
 from src.calendar.constants import EventType, EventStatus, DEFAULT_CALENDAR_PAGE_SIZE
 from src.common.schemas import Pagination
+from src.common.dependencies import get_current_active_user
+from src.auth.models import User
 
 router = APIRouter(prefix="/api/v1/calendar", tags=["calendar"])
 
@@ -25,6 +27,7 @@ async def get_events(
     page: int = Query(1, ge=1),
     size: int = Query(DEFAULT_CALENDAR_PAGE_SIZE, ge=1, le=100),
     service: CalendarService = Depends(get_calendar_service),
+    current_user: User = Depends(get_current_active_user),
 ):
     """Get list of events with filters and pagination."""
     events, total = await service.get_events(start, end, lead_id, event_type, status, page, size)
@@ -43,6 +46,7 @@ async def get_events(
 async def get_event(
     event_id: int,
     service: CalendarService = Depends(get_calendar_service),
+    current_user: User = Depends(get_current_active_user),
 ):
     """Get single event by ID."""
     event = await service.get_event(event_id)
@@ -53,6 +57,7 @@ async def get_event(
 async def create_event(
     data: EventCreate,
     service: CalendarService = Depends(get_calendar_service),
+    current_user: User = Depends(get_current_active_user),
 ):
     """Create new event."""
     event = await service.create_event(data)
@@ -64,6 +69,7 @@ async def update_event(
     event_id: int,
     data: EventUpdate,
     service: CalendarService = Depends(get_calendar_service),
+    current_user: User = Depends(get_current_active_user),
 ):
     """Update event (partial update)."""
     event = await service.update_event(event_id, data)
@@ -75,6 +81,7 @@ async def update_event_status(
     event_id: int,
     data: EventStatusUpdate,
     service: CalendarService = Depends(get_calendar_service),
+    current_user: User = Depends(get_current_active_user),
 ):
     """Update event status only (for quick status change)."""
     event = await service.update_event_status(event_id, data.status)
@@ -85,6 +92,7 @@ async def update_event_status(
 async def delete_event(
     event_id: int,
     service: CalendarService = Depends(get_calendar_service),
+    current_user: User = Depends(get_current_active_user),
 ):
     """Delete event."""
     await service.delete_event(event_id)

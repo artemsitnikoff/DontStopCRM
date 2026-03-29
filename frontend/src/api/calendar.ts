@@ -1,6 +1,6 @@
 import apiClient from './client'
 import type { CalendarEvent, EventCreate, EventUpdate, EventStatus } from '@/types/calendar'
-import type { Pagination } from '@/types/lead'
+import type { Pagination } from '@/types/common'
 
 interface EventsResponse {
   items: CalendarEvent[]

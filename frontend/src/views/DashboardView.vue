@@ -5,6 +5,7 @@ import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearSca
 import { useDashboard } from '@/composables/useDashboard'
 import StatCard from '@/components/domain/StatCard.vue'
 import UpcomingTasksTable from '@/components/domain/UpcomingTasksTable.vue'
+import { SOURCE_LABELS, SOURCE_COLORS, STATUS_LABELS, STATUS_COLORS } from '@/constants/leads'
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement)
 
@@ -21,25 +22,11 @@ const newLeadsCount = computed(() => {
 const sourceChartData = computed(() => {
   if (!stats.value?.leads_by_source) return null
 
-  const sourceColors: Record<string, string> = {
-    telegram: '#0088cc',
-    whatsapp: '#25D366',
-    instagram: '#E1306C',
-    phone: '#1929bb'
-  }
-
-  const sourceLabels: Record<string, string> = {
-    telegram: 'Telegram',
-    whatsapp: 'WhatsApp',
-    instagram: 'Instagram',
-    phone: 'Телефон'
-  }
-
   return {
-    labels: stats.value.leads_by_source.map(s => sourceLabels[s.source] || s.source),
+    labels: stats.value.leads_by_source.map(s => SOURCE_LABELS[s.source] || s.source),
     datasets: [{
       data: stats.value.leads_by_source.map(s => s.count),
-      backgroundColor: stats.value.leads_by_source.map(s => sourceColors[s.source] || '#6B7280'),
+      backgroundColor: stats.value.leads_by_source.map(s => SOURCE_COLORS[s.source] || '#6B7280'),
       borderWidth: 0
     }]
   }
@@ -48,25 +35,11 @@ const sourceChartData = computed(() => {
 const statusChartData = computed(() => {
   if (!stats.value?.leads_by_status) return null
 
-  const statusColors: Record<string, string> = {
-    new: '#1929bb',
-    contacted: '#e6a23c',
-    qualified: '#6C5CE7',
-    won: '#017d0d'
-  }
-
-  const statusLabels: Record<string, string> = {
-    new: 'Новый',
-    contacted: 'Контакт',
-    qualified: 'Квалифицирован',
-    won: 'Выигран'
-  }
-
   return {
-    labels: stats.value.leads_by_status.map(s => statusLabels[s.status] || s.status),
+    labels: stats.value.leads_by_status.map(s => STATUS_LABELS[s.status] || s.status),
     datasets: [{
       data: stats.value.leads_by_status.map(s => s.count),
-      backgroundColor: stats.value.leads_by_status.map(s => statusColors[s.status] || '#6B7280'),
+      backgroundColor: stats.value.leads_by_status.map(s => STATUS_COLORS[s.status] || '#6B7280'),
       borderWidth: 0
     }]
   }

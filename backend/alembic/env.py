@@ -10,7 +10,7 @@ from src.common.models import BaseModel
 from src.auth.models import User
 from src.leads.models import Lead
 from src.chats.models import Message
-from src.calendar.models import Appointment
+from src.calendar.models import Event
 
 # Import the base model metadata
 from src.core.database import Base

@@ -27,12 +27,7 @@ export interface MessageCreate {
   is_from_agent?: boolean
 }
 
-export interface Pagination {
-  page: number
-  size: number
-  total: number
-  pages: number
-}
+import type { Pagination } from './common'
 
 export interface MessageListResponse {
   items: Message[]

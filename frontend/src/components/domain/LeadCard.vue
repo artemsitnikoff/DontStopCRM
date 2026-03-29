@@ -1,16 +1,10 @@
 <script setup lang="ts">
 import type { Lead } from '@/types/lead'
+import { SOURCE_COLORS } from '@/constants/leads'
 
-const props = defineProps<{
+defineProps<{
   lead: Lead
 }>()
-
-const sourceColors = {
-  telegram: '#0088cc',
-  whatsapp: '#25D366',
-  instagram: '#E1306C',
-  phone: '#1929bb'
-}
 
 const formatDate = (date: string) => {
   return new Date(date).toLocaleDateString('ru-RU')
@@ -20,7 +14,7 @@ const formatDate = (date: string) => {
 <template>
   <div
     class="bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-1 cursor-grab"
-    :style="{ borderLeftColor: sourceColors[lead.source], borderLeftWidth: '4px' }"
+    :style="{ borderLeftColor: SOURCE_COLORS[lead.source], borderLeftWidth: '4px' }"
   >
     <!-- Header with source icon and name -->
     <div class="flex items-start justify-between mb-3">
@@ -31,7 +25,7 @@ const formatDate = (date: string) => {
           <svg
             v-if="lead.source === 'telegram'"
             class="w-5 h-5"
-            :style="{ color: sourceColors.telegram }"
+            :style="{ color: SOURCE_COLORS.telegram }"
             viewBox="0 0 24 24"
             fill="currentColor"
           >
@@ -42,7 +36,7 @@ const formatDate = (date: string) => {
           <svg
             v-else-if="lead.source === 'whatsapp'"
             class="w-5 h-5"
-            :style="{ color: sourceColors.whatsapp }"
+            :style="{ color: SOURCE_COLORS.whatsapp }"
             viewBox="0 0 24 24"
             fill="currentColor"
           >
@@ -53,7 +47,7 @@ const formatDate = (date: string) => {
           <svg
             v-else-if="lead.source === 'instagram'"
             class="w-5 h-5"
-            :style="{ color: sourceColors.instagram }"
+            :style="{ color: SOURCE_COLORS.instagram }"
             viewBox="0 0 24 24"
             fill="currentColor"
           >
@@ -64,7 +58,7 @@ const formatDate = (date: string) => {
           <svg
             v-else-if="lead.source === 'phone'"
             class="w-5 h-5"
-            :style="{ color: sourceColors.phone }"
+            :style="{ color: SOURCE_COLORS.phone }"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"

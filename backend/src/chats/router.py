@@ -16,6 +16,8 @@ from src.chats.constants import DEFAULT_CHAT_PAGE_SIZE
 from src.chats.ws_manager import manager
 from src.common.schemas import Pagination
 from src.core.database import AsyncSessionLocal
+from src.common.dependencies import get_current_active_user
+from src.auth.models import User
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/chats", tags=["chats"])
@@ -62,6 +64,7 @@ async def _process_ws_message(data: str, lead_id: int, websocket: WebSocket):
 @router.get("/", response_model=ChatListResponse)
 async def get_chats(
     service: ChatService = Depends(get_chat_service),
+    current_user: User = Depends(get_current_active_user),
 ):
     """Get list of chat previews grouped by lead."""
     chat_previews = await service.get_chats()
@@ -74,6 +77,7 @@ async def get_messages(
     page: int = Query(1, ge=1),
     size: int = Query(DEFAULT_CHAT_PAGE_SIZE, ge=1, le=100),
     service: ChatService = Depends(get_chat_service),
+    current_user: User = Depends(get_current_active_user),
 ):
     """Get message history for a specific lead with pagination."""
     messages, total = await service.get_messages(lead_id, page, size)
@@ -93,6 +97,7 @@ async def send_message(
     lead_id: int,
     message_data: MessageCreateBody,
     service: ChatService = Depends(get_chat_service),
+    current_user: User = Depends(get_current_active_user),
 ):
     """Send a message to a lead."""
     # Create MessageCreate with lead_id from path
@@ -115,6 +120,23 @@ async def websocket_endpoint(
     lead_id: int,
 ):
     """WebSocket endpoint for real-time messaging."""
+    # Get token from query params
+    token = websocket.query_params.get("token")
+    if not token:
+        await websocket.close(code=4001, reason="Missing token")
+        return
+
+    try:
+        from src.core.security import verify_token
+        payload = verify_token(token)
+        user_id = payload.get("sub")
+        if user_id is None:
+            await websocket.close(code=4001, reason="Invalid token")
+            return
+    except Exception:
+        await websocket.close(code=4001, reason="Invalid token")
+        return
+
     await manager.connect(websocket, lead_id)
     try:
         while True:

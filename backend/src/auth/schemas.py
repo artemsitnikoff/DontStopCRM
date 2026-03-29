@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr, ConfigDict, Field
 from typing import Optional
 from src.common.schemas import BaseResponse
 from src.auth.constants import UserRole
@@ -14,7 +14,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     """User creation schema."""
-    password: str
+    password: str = Field(min_length=8)
 
 
 class UserUpdate(BaseModel):
@@ -23,7 +23,7 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     role: Optional[UserRole] = None
     is_active: Optional[bool] = None
-    password: Optional[str] = None
+    password: Optional[str] = Field(None, min_length=8)
 
 
 class UserResponse(BaseResponse, UserBase):
@@ -44,12 +44,3 @@ class LoginResponse(BaseModel):
     user: UserResponse
 
 
-class Token(BaseModel):
-    """Token schema."""
-    access_token: str
-    token_type: str
-
-
-class TokenPayload(BaseModel):
-    """Token payload schema."""
-    sub: Optional[int] = None

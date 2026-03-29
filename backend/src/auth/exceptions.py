@@ -1,7 +1,7 @@
 class UserNotFoundException(Exception):
     """Raised when user is not found."""
 
-    def __init__(self, user_id: int = None, email: str = None):
+    def __init__(self, user_id: int | None = None, email: str | None = None):
         self.user_id = user_id
         self.email = email
         if user_id:

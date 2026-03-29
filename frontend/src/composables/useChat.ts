@@ -1,4 +1,4 @@
-import { ref, nextTick } from 'vue'
+import { ref } from 'vue'
 import type { ChatPreview, Message, MessageCreate, MessageDirection, MessageSource } from '@/types/chat'
 import * as chatsApi from '@/api/chats'
 
@@ -17,14 +17,19 @@ export function useChat() {
   const getWebSocketUrl = (leadId: number): string => {
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const baseUrl = import.meta.env.VITE_WS_URL
+    const token = localStorage.getItem('access_token')
 
+    let wsUrl: string
     if (baseUrl) {
-      return `${baseUrl}/api/v1/chats/ws/${leadId}`
+      wsUrl = `${baseUrl}/api/v1/chats/ws/${leadId}`
+    } else {
+      // Construct from current location
+      const host = window.location.host
+      wsUrl = `${wsProtocol}//${host}/api/v1/chats/ws/${leadId}`
     }
 
-    // Construct from current location
-    const host = window.location.host
-    return `${wsProtocol}//${host}/api/v1/chats/ws/${leadId}`
+    // Add token as query parameter
+    return token ? `${wsUrl}?token=${token}` : wsUrl
   }
 
   const fetchChats = async () => {

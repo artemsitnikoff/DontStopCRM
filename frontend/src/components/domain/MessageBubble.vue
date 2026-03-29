@@ -2,6 +2,7 @@
 import type { Message } from '@/types/chat'
 import { computed } from 'vue'
 import { formatRelativeTime } from '@/utils/formatDate'
+import { SOURCE_COLORS } from '@/constants/leads'
 
 const props = defineProps<{
   message: Message
@@ -51,9 +52,9 @@ const sourceIcon = computed(() => {
 const sourceColor = computed(() => {
   switch (props.message.source) {
     case 'telegram':
-      return '#0088cc'
+      return SOURCE_COLORS.telegram
     case 'whatsapp':
-      return '#25D366'
+      return SOURCE_COLORS.whatsapp
     case 'manual':
     default:
       return '#6b7280'
