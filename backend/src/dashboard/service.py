@@ -1,20 +1,20 @@
+import logging
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, desc
-from datetime import datetime, timedelta
-from typing import Dict, List
+from sqlalchemy import select, func, and_
+from datetime import datetime
 from src.leads.models import Lead
-from src.chats.models import Message
-from src.calendar.models import Appointment
+from src.calendar.models import Event
 from src.dashboard.schemas import (
-    LeadStats,
-    ChatStats,
-    CalendarStats,
-    ActivityItem,
-    DashboardResponse
+    DashboardStats,
+    StatusCount,
+    SourceCount,
+    UpcomingTask,
 )
-from src.leads.constants import LeadStatus, LeadSource
-from src.calendar.constants import AppointmentType
-from src.chats.constants import MessageSenderType
+from src.dashboard.constants import UPCOMING_TASKS_LIMIT
+from src.leads.constants import LeadStatus
+from src.calendar.constants import EventStatus, EventType
+
+logger = logging.getLogger(__name__)
 
 
 class DashboardService:
@@ -23,248 +23,110 @@ class DashboardService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_lead_stats(self) -> LeadStats:
-        """Get lead statistics."""
-        now = datetime.utcnow()
-        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        week_start = today_start - timedelta(days=today_start.weekday())
-        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    async def get_stats(self) -> DashboardStats:
+        """Get complete dashboard statistics."""
+        logger.info("Getting dashboard statistics")
 
-        # Total leads
-        total_result = await self.db.execute(select(func.count(Lead.id)))
-        total_leads = total_result.scalar()
+        total_leads = await self._get_total_leads()
+        leads_by_status = await self._get_leads_by_status()
+        leads_by_source = await self._get_leads_by_source()
+        upcoming_tasks = await self._get_upcoming_tasks()
+        today_bookings = await self._get_today_bookings()
+        conversion_rate = self._calc_conversion_rate(total_leads, leads_by_status)
 
-        # Leads by status
-        status_result = await self.db.execute(
-            select(Lead.status, func.count(Lead.id))
-            .group_by(Lead.status)
-        )
-        leads_by_status = {status: count for status, count in status_result.all()}
-
-        # Fill missing statuses with 0
-        for status in LeadStatus:
-            if status not in leads_by_status:
-                leads_by_status[status] = 0
-
-        # Leads by source
-        source_result = await self.db.execute(
-            select(Lead.source, func.count(Lead.id))
-            .group_by(Lead.source)
-        )
-        leads_by_source = {source: count for source, count in source_result.all()}
-
-        # Fill missing sources with 0
-        for source in LeadSource:
-            if source not in leads_by_source:
-                leads_by_source[source] = 0
-
-        # New leads today
-        today_result = await self.db.execute(
-            select(func.count(Lead.id))
-            .where(Lead.created_at >= today_start)
-        )
-        new_leads_today = today_result.scalar()
-
-        # New leads this week
-        week_result = await self.db.execute(
-            select(func.count(Lead.id))
-            .where(Lead.created_at >= week_start)
-        )
-        new_leads_this_week = week_result.scalar()
-
-        # New leads this month
-        month_result = await self.db.execute(
-            select(func.count(Lead.id))
-            .where(Lead.created_at >= month_start)
-        )
-        new_leads_this_month = month_result.scalar()
-
-        return LeadStats(
+        return DashboardStats(
             total_leads=total_leads,
             leads_by_status=leads_by_status,
             leads_by_source=leads_by_source,
-            new_leads_today=new_leads_today,
-            new_leads_this_week=new_leads_this_week,
-            new_leads_this_month=new_leads_this_month,
+            upcoming_tasks=upcoming_tasks,
+            today_bookings=today_bookings,
+            conversion_rate=conversion_rate,
         )
 
-    async def get_chat_stats(self) -> ChatStats:
-        """Get chat statistics."""
-        now = datetime.utcnow()
-        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        week_start = today_start - timedelta(days=today_start.weekday())
+    async def _get_total_leads(self) -> int:
+        """Get total number of leads."""
+        logger.debug("Getting total leads count")
+        result = await self.db.execute(select(func.count(Lead.id)))
+        return result.scalar() or 0
 
-        # Total messages
-        total_result = await self.db.execute(select(func.count(Message.id)))
-        total_messages = total_result.scalar()
-
-        # Unread messages
-        unread_result = await self.db.execute(
-            select(func.count(Message.id))
-            .where(Message.is_read == False)
+    async def _get_leads_by_status(self) -> list[StatusCount]:
+        """Get lead count grouped by status."""
+        logger.debug("Getting leads by status")
+        result = await self.db.execute(
+            select(Lead.status, func.count(Lead.id).label("count"))
+            .group_by(Lead.status)
         )
-        unread_messages = unread_result.scalar()
+        return [
+            StatusCount(status=status.value, count=count)
+            for status, count in result.all()
+        ]
 
-        # Messages today
-        today_result = await self.db.execute(
-            select(func.count(Message.id))
-            .where(Message.created_at >= today_start)
+    async def _get_leads_by_source(self) -> list[SourceCount]:
+        """Get lead count grouped by source."""
+        logger.debug("Getting leads by source")
+        result = await self.db.execute(
+            select(Lead.source, func.count(Lead.id).label("count"))
+            .group_by(Lead.source)
         )
-        messages_today = today_result.scalar()
+        return [
+            SourceCount(source=source.value, count=count)
+            for source, count in result.all()
+        ]
 
-        # Messages this week
-        week_result = await self.db.execute(
-            select(func.count(Message.id))
-            .where(Message.created_at >= week_start)
-        )
-        messages_this_week = week_result.scalar()
-
-        # Active conversations (leads with messages in last 7 days)
-        active_result = await self.db.execute(
-            select(func.count(func.distinct(Message.lead_id)))
-            .where(Message.created_at >= week_start)
-        )
-        active_conversations = active_result.scalar()
-
-        return ChatStats(
-            total_messages=total_messages,
-            unread_messages=unread_messages,
-            messages_today=messages_today,
-            messages_this_week=messages_this_week,
-            active_conversations=active_conversations,
-        )
-
-    async def get_calendar_stats(self) -> CalendarStats:
-        """Get calendar statistics."""
-        now = datetime.utcnow()
-        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        today_end = today_start + timedelta(days=1)
-        week_start = today_start - timedelta(days=today_start.weekday())
-        week_end = week_start + timedelta(days=7)
-
-        # Total appointments
-        total_result = await self.db.execute(select(func.count(Appointment.id)))
-        total_appointments = total_result.scalar()
-
-        # Appointments by type
-        type_result = await self.db.execute(
-            select(Appointment.type, func.count(Appointment.id))
-            .group_by(Appointment.type)
-        )
-        appointments_by_type = {type_: count for type_, count in type_result.all()}
-
-        # Fill missing types with 0
-        for type_ in AppointmentType:
-            if type_ not in appointments_by_type:
-                appointments_by_type[type_] = 0
-
-        # Appointments today
-        today_result = await self.db.execute(
-            select(func.count(Appointment.id))
+    async def _get_upcoming_tasks(self) -> list[UpcomingTask]:
+        """Get upcoming tasks (next 5 future events)."""
+        logger.debug("Getting upcoming tasks, limit: %s", UPCOMING_TASKS_LIMIT)
+        result = await self.db.execute(
+            select(Event, Lead.name.label("lead_name"))
+            .outerjoin(Lead, Event.lead_id == Lead.id)
             .where(
                 and_(
-                    Appointment.start_time >= today_start,
-                    Appointment.start_time < today_end
+                    Event.start_at > func.now(),
+                    Event.status == EventStatus.PLANNED
+                )
+            )
+            .order_by(Event.start_at.asc())
+            .limit(UPCOMING_TASKS_LIMIT)
+        )
+        return [
+            UpcomingTask(
+                id=event.id,
+                title=event.title,
+                start_at=event.start_at,
+                end_at=event.end_at,
+                event_type=event.event_type.value,
+                lead_id=event.lead_id,
+                lead_name=lead_name,
+            )
+            for event, lead_name in result.all()
+        ]
+
+    async def _get_today_bookings(self) -> int:
+        """Get number of bookings for today."""
+        logger.debug("Getting today's bookings")
+        result = await self.db.execute(
+            select(func.count(Event.id))
+            .where(
+                and_(
+                    Event.event_type == EventType.BOOKING,
+                    func.date(Event.start_at) == func.current_date()
                 )
             )
         )
-        appointments_today = today_result.scalar()
+        return result.scalar() or 0
 
-        # Appointments this week
-        week_result = await self.db.execute(
-            select(func.count(Appointment.id))
-            .where(
-                and_(
-                    Appointment.start_time >= week_start,
-                    Appointment.start_time < week_end
-                )
-            )
-        )
-        appointments_this_week = week_result.scalar()
+    def _calc_conversion_rate(self, total: int, by_status: list[StatusCount]) -> float:
+        """Calculate conversion rate (won leads / total leads * 100)."""
+        if total == 0:
+            logger.debug("No leads found, conversion rate: 0.0")
+            return 0.0
 
-        # Upcoming appointments (from now)
-        upcoming_result = await self.db.execute(
-            select(func.count(Appointment.id))
-            .where(Appointment.start_time > now)
-        )
-        upcoming_appointments = upcoming_result.scalar()
+        won_count = 0
+        for status_count in by_status:
+            if status_count.status == LeadStatus.WON.value:
+                won_count = status_count.count
+                break
 
-        return CalendarStats(
-            total_appointments=total_appointments,
-            appointments_by_type=appointments_by_type,
-            appointments_today=appointments_today,
-            appointments_this_week=appointments_this_week,
-            upcoming_appointments=upcoming_appointments,
-        )
-
-    async def get_recent_activity(self, limit: int = 10) -> List[ActivityItem]:
-        """Get recent activity across all modules."""
-        activities = []
-
-        # Recent leads
-        leads_result = await self.db.execute(
-            select(Lead)
-            .order_by(desc(Lead.created_at))
-            .limit(limit // 3)
-        )
-        for lead in leads_result.scalars():
-            activities.append(ActivityItem(
-                id=len(activities) + 1,
-                type="lead_created",
-                title="New Lead Created",
-                description=f"Lead '{lead.name}' was created",
-                timestamp=lead.created_at,
-                related_id=lead.id,
-            ))
-
-        # Recent messages
-        messages_result = await self.db.execute(
-            select(Message)
-            .order_by(desc(Message.created_at))
-            .limit(limit // 3)
-        )
-        for message in messages_result.scalars():
-            sender = "Client" if message.sender_type == MessageSenderType.CLIENT else "Agent"
-            activities.append(ActivityItem(
-                id=len(activities) + 1,
-                type="message_sent",
-                title=f"Message from {sender}",
-                description=f"New message in lead conversation",
-                timestamp=message.created_at,
-                related_id=message.id,
-            ))
-
-        # Recent appointments
-        appointments_result = await self.db.execute(
-            select(Appointment)
-            .order_by(desc(Appointment.created_at))
-            .limit(limit // 3)
-        )
-        for appointment in appointments_result.scalars():
-            activities.append(ActivityItem(
-                id=len(activities) + 1,
-                type="appointment_scheduled",
-                title="Appointment Scheduled",
-                description=f"'{appointment.title}' scheduled",
-                timestamp=appointment.created_at,
-                related_id=appointment.id,
-            ))
-
-        # Sort by timestamp and limit
-        activities.sort(key=lambda x: x.timestamp, reverse=True)
-        return activities[:limit]
-
-    async def get_dashboard_data(self) -> DashboardResponse:
-        """Get complete dashboard data."""
-        lead_stats = await self.get_lead_stats()
-        chat_stats = await self.get_chat_stats()
-        calendar_stats = await self.get_calendar_stats()
-        recent_activity = await self.get_recent_activity()
-
-        return DashboardResponse(
-            lead_stats=lead_stats,
-            chat_stats=chat_stats,
-            calendar_stats=calendar_stats,
-            recent_activity=recent_activity,
-            generated_at=datetime.utcnow(),
-        )
+        rate = (won_count / total) * 100
+        logger.debug("Conversion rate: %s%% (%s won / %s total)", rate, won_count, total)
+        return rate
